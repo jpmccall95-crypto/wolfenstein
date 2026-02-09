@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wolfenstein 3D - Browser Klon</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <canvas id="gameCanvas" width="640" height="480"></canvas>
+
+    <div id="startScreen">
+        <h1>WOLFENSTEIN 3D</h1>
+        <p class="subtitle">- Browser Klon -</p>
+        <p class="prompt">Klicke um zu starten!</p>
+        <div class="controls">
+            <p>WASD - Bewegen</p>
+            <p>Maus - Umsehen</p>
+            <p>Leertaste / Linksklick - Schie&szlig;en</p>
+        </div>
+    </div>
+
+    <!-- Spielmodule in Abhaengigkeitsreihenfolge laden -->
+    <script src="js/map.js"></script>
+    <script src="js/input.js"></script>
+    <script src="js/player.js"></script>
+    <script src="js/enemy.js"></script>
+    <script src="js/engine.js"></script>
+    <script src="js/renderer.js"></script>
+    <script src="js/hud.js"></script>
+    <script src="js/game.js"></script>
+</body>
+</html>

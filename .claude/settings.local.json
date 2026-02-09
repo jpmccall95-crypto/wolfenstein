@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(for f in js/*.js)",
+      "Bash(do echo \"=== $f ===\")",
+      "Bash(node --check:*)",
+      "Bash(done)"
+    ]
+  }
+}

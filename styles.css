@@ -1,0 +1,61 @@
+/* Minimales Styling - schwarzer Hintergrund, zentrierter Canvas */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background-color: #000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    overflow: hidden;
+    font-family: 'Courier New', monospace;
+}
+
+canvas {
+    display: block;
+    image-rendering: pixelated;
+}
+
+/* Startbildschirm-Overlay */
+#startScreen {
+    position: absolute;
+    color: #fff;
+    text-align: center;
+    user-select: none;
+}
+
+#startScreen h1 {
+    font-size: 52px;
+    color: #cc0000;
+    text-shadow: 3px 3px 0px #660000;
+    margin-bottom: 30px;
+    letter-spacing: 4px;
+}
+
+#startScreen .subtitle {
+    font-size: 16px;
+    color: #888;
+    margin-bottom: 40px;
+}
+
+#startScreen .prompt {
+    font-size: 22px;
+    color: #ffcc00;
+    animation: blink 1.2s infinite;
+}
+
+#startScreen .controls {
+    font-size: 14px;
+    color: #666;
+    margin-top: 30px;
+    line-height: 1.8;
+}
+
+@keyframes blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0.3; }
+}
