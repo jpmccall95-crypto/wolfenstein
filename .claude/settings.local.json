@@ -4,7 +4,10 @@
       "Bash(for f in js/*.js)",
       "Bash(do echo \"=== $f ===\")",
       "Bash(node --check:*)",
-      "Bash(done)"
+      "Bash(done)",
+      "Bash(timeout:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nPhase 2: Multiplayer Server\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")"
     ]
   }
 }

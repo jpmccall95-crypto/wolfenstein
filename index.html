@@ -12,20 +12,37 @@
     <div id="startScreen">
         <h1>WOLFENSTEIN 3D</h1>
         <p class="subtitle">- Browser Klon -</p>
-        <p class="prompt">Klicke um zu starten!</p>
+
+        <!-- Singleplayer-Start (Standard wenn kein Server) -->
+        <div id="spStart">
+            <p class="prompt">Klicke um zu starten!</p>
+        </div>
+
+        <!-- Multiplayer-Start (wenn Server verfuegbar) -->
+        <div id="mpStart" style="display:none;">
+            <input type="text" id="nameInput" maxlength="15"
+                   placeholder="Spielername..." class="nameInput" autocomplete="off">
+            <br><br>
+            <button id="joinBtn" class="joinBtn">BEITRETEN</button>
+        </div>
+
         <div class="controls">
-            <p>WASD - Bewegen</p>
-            <p>Maus - Umsehen</p>
+            <p>WASD - Bewegen | Maus - Umsehen</p>
             <p>Leertaste / Linksklick - Schie&szlig;en</p>
+            <p>Tab - Scoreboard | Enter - Chat</p>
         </div>
     </div>
 
-    <!-- Spielmodule in Abhaengigkeitsreihenfolge laden -->
+    <!-- Socket.io Client (nur verfuegbar wenn Server laeuft) -->
+    <script src="/socket.io/socket.io.js" onerror=""></script>
+
+    <!-- Spielmodule in Abhaengigkeitsreihenfolge -->
     <script src="js/map.js"></script>
     <script src="js/input.js"></script>
     <script src="js/player.js"></script>
     <script src="js/enemy.js"></script>
     <script src="js/engine.js"></script>
+    <script src="js/network.js"></script>
     <script src="js/renderer.js"></script>
     <script src="js/hud.js"></script>
     <script src="js/game.js"></script>
