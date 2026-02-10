@@ -96,3 +96,75 @@ canvas {
     background: #666;
     cursor: wait;
 }
+
+/* Modus-Auswahl */
+.modeSelect {
+    margin-bottom: 20px;
+}
+
+.modeBtn {
+    background: #333;
+    color: #888;
+    border: 2px solid #555;
+    padding: 10px 22px;
+    font-family: 'Courier New', monospace;
+    font-size: 15px;
+    cursor: pointer;
+    letter-spacing: 1px;
+    margin: 0 5px;
+    transition: all 0.15s;
+}
+
+.modeBtn:hover {
+    border-color: #999;
+    color: #ccc;
+}
+
+.modeBtn.active {
+    background: #cc0000;
+    color: #fff;
+    border-color: #ff4444;
+}
+
+.modeBtn:disabled {
+    cursor: default;
+    opacity: 0.6;
+}
+
+/* Lobby */
+.lobbyInfo {
+    margin: 15px 0;
+}
+
+.lobbyStatus {
+    color: #888;
+    font-size: 13px;
+    margin-bottom: 10px;
+}
+
+.lobbyPlayers {
+    min-height: 30px;
+    margin-bottom: 15px;
+}
+
+.lobbyPlayer {
+    display: inline-block;
+    padding: 4px 12px;
+    margin: 3px 4px;
+    font-size: 13px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.lobbyPlayer.host::after {
+    content: ' (Host)';
+    color: #ffcc00;
+    font-size: 11px;
+}
+
+.waitHost {
+    color: #ffcc00;
+    font-size: 16px;
+    animation: blink 1.2s infinite;
+}

@@ -1,5 +1,6 @@
 // ============================================
 // engine.js - Raycasting-Engine (DDA-Algorithmus)
+// Erweitert um Tuer-Unterstuetzung
 // ============================================
 
 const Engine = {
@@ -70,6 +71,20 @@ const Engine = {
             if (panel) return { r: clamp(65 + n), g: clamp(85 + n), b: clamp(155 + n) };
             return { r: clamp(75 + n), g: clamp(95 + n), b: clamp(175 + n) };
         });
+
+        // --- Holztuer (braun mit Eisenbeschlaegen, Typ 5) ---
+        this.textures[5] = this._createTexture(s, (x, y) => {
+            const border = x < 4 || x >= s - 4 || y < 4 || y >= s - 4;
+            const hinge = (x < 8 && (y > 12 && y < 20 || y > 42 && y < 50));
+            const handle = x > s - 18 && x < s - 10 && y > 28 && y < 36;
+            if (border) return { r: 60, g: 60, b: 65 };
+            if (hinge) return { r: 80, g: 80, b: 85 };
+            if (handle) return { r: 180, g: 170, b: 50 };
+            // Holzmaserung
+            const grain = Math.sin(y * 0.5 + Math.sin(x * 0.2) * 1.5) * 12;
+            const base = 100 + grain;
+            return { r: clamp(base + 8), g: clamp(base * 0.65), b: clamp(base * 0.3) };
+        });
     },
 
     // Einzelne Textur als Pixeldaten erzeugen
@@ -89,12 +104,14 @@ const Engine = {
     },
 
     // ============================================
-    // DDA-Raycasting - Herzst ueck der Engine
+    // DDA-Raycasting - Herzstueck der Engine
+    // Erweitert: Offene Tueren lassen Strahlen durch
     // ============================================
     castRays(player) {
         const w = this.screenWidth;
         const h = this.screenHeight;
         const wallSlices = new Array(w);
+        const hasDoors = typeof Doors !== 'undefined';
 
         for (let x = 0; x < w; x++) {
             // Kamera-X-Koordinate: -1 (links) bis +1 (rechts)
@@ -134,8 +151,11 @@ const Engine = {
             // DDA: Schritt fuer Schritt durch das Gitter
             let side = 0; // 0 = vertikale Wand (X), 1 = horizontale Wand (Y)
             let hit = false;
+            let steps = 0;
+            const MAX_STEPS = 64; // Sicherheitslimit
 
-            while (!hit) {
+            while (!hit && steps < MAX_STEPS) {
+                steps++;
                 if (sideDistX < sideDistY) {
                     sideDistX += deltaDistX;
                     mapX += stepX;
@@ -147,7 +167,15 @@ const Engine = {
                 }
 
                 if (mapY >= 0 && mapY < MAP_HEIGHT && mapX >= 0 && mapX < MAP_WIDTH) {
-                    if (MAP_DATA[mapY][mapX] > 0) hit = true;
+                    const tile = MAP_DATA[mapY][mapX];
+                    if (tile > 0) {
+                        // Tuer-Tiles: nur treffen wenn nicht komplett offen
+                        if ((tile === 5 || tile === 6) && hasDoors && Doors.isFullyOpen(mapX, mapY)) {
+                            // Tuer ist offen -> Strahl geht weiter
+                        } else {
+                            hit = true;
+                        }
+                    }
                 } else {
                     hit = true; // Kartenrand
                 }
@@ -184,9 +212,14 @@ const Engine = {
             if (side === 0 && rayDirX > 0) texX = TEX_SIZE - texX - 1;
             if (side === 1 && rayDirY < 0) texX = TEX_SIZE - texX - 1;
 
-            // Wandtyp
-            const wallType = (mapY >= 0 && mapY < MAP_HEIGHT && mapX >= 0 && mapX < MAP_WIDTH)
+            // Wandtyp bestimmen
+            let wallType = (mapY >= 0 && mapY < MAP_HEIGHT && mapX >= 0 && mapX < MAP_WIDTH)
                 ? MAP_DATA[mapY][mapX] : 1;
+
+            // Geheimtuer: Textur der umgebenden Wand verwenden (Tarnung!)
+            if (wallType === 6 && hasDoors) {
+                wallType = Doors.getDisguiseTexture(mapX, mapY);
+            }
 
             wallSlices[x] = {
                 drawStart,

@@ -1,6 +1,7 @@
 // ============================================
 // renderer.js - Zeichnet alles auf den Canvas
-// Erweitert um Multiplayer-Sprites und Nametags
+// Erweitert um Multiplayer-Sprites, Nametags,
+// Gold/Waffen-Pickups und 3 Waffen-Grafiken
 // ============================================
 
 const Renderer = {
@@ -12,7 +13,13 @@ const Renderer = {
     screenBuf: null,
     enemySprite: null,
     enemyHurtSprite: null,
+    bossSprite: null,
+    bossHurtSprite: null,
     pickupSprite: null,
+    goldSprite: null,
+    treasureSprite: null,
+    shotgunSprite: null,
+    mgSprite: null,
     _playerSpriteCache: {}, // Farbe -> Canvas (gecacht)
 
     // Renderer initialisieren
@@ -26,7 +33,7 @@ const Renderer = {
         this._createSprites();
     },
 
-    // SP-Sprites vorrendern (Gegner + Pickups)
+    // Sprites vorrendern
     _createSprites() {
         // --- Gegner-Sprite (64x64, gruener Soldat) ---
         this.enemySprite = this._createSpriteCanvas(64, 64, (ctx) => {
@@ -69,6 +76,55 @@ const Renderer = {
             ctx.fillRect(48, 28, 12, 4);
         });
 
+        // --- Boss-Sprite (64x64, dunkelviolett/rot, groesser wirkend) ---
+        this.bossSprite = this._createSpriteCanvas(64, 64, (ctx) => {
+            // Koerper (breit, dunkelviolett)
+            ctx.fillStyle = '#5a1a5a';
+            ctx.fillRect(12, 18, 40, 34);
+            ctx.fillRect(4, 20, 56, 14);
+            // Kopf
+            ctx.fillStyle = '#7a2a7a';
+            ctx.beginPath(); ctx.arc(32, 14, 13, 0, Math.PI * 2); ctx.fill();
+            // Helm/Hoerner
+            ctx.fillStyle = '#3a0a3a';
+            ctx.fillRect(16, 2, 32, 12);
+            ctx.fillRect(12, 6, 8, 10);
+            ctx.fillRect(44, 6, 8, 10);
+            // Augen (gelb, boese)
+            ctx.fillStyle = '#ffcc00';
+            ctx.fillRect(24, 12, 5, 4);
+            ctx.fillRect(35, 12, 5, 4);
+            // Beine
+            ctx.fillStyle = '#3a0a3a';
+            ctx.fillRect(16, 52, 12, 12);
+            ctx.fillRect(36, 52, 12, 12);
+            // Waffe (gross)
+            ctx.fillStyle = '#666';
+            ctx.fillRect(52, 24, 12, 6);
+            ctx.fillRect(56, 20, 4, 14);
+        });
+
+        // --- Boss bei Treffer ---
+        this.bossHurtSprite = this._createSpriteCanvas(64, 64, (ctx) => {
+            ctx.fillStyle = '#cc2222';
+            ctx.fillRect(12, 18, 40, 34);
+            ctx.fillRect(4, 20, 56, 14);
+            ctx.fillStyle = '#ee4444';
+            ctx.beginPath(); ctx.arc(32, 14, 13, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#aa1111';
+            ctx.fillRect(16, 2, 32, 12);
+            ctx.fillRect(12, 6, 8, 10);
+            ctx.fillRect(44, 6, 8, 10);
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(24, 12, 5, 4);
+            ctx.fillRect(35, 12, 5, 4);
+            ctx.fillStyle = '#aa1111';
+            ctx.fillRect(16, 52, 12, 12);
+            ctx.fillRect(36, 52, 12, 12);
+            ctx.fillStyle = '#888';
+            ctx.fillRect(52, 24, 12, 6);
+        });
+
         // --- Health-Pickup-Sprite (32x32) ---
         this.pickupSprite = this._createSpriteCanvas(32, 32, (ctx) => {
             ctx.fillStyle = '#dd2222';
@@ -77,6 +133,60 @@ const Renderer = {
             ctx.fillStyle = '#ffffff';
             ctx.fillRect(10, 13, 12, 6);
             ctx.fillRect(13, 10, 6, 12);
+        });
+
+        // --- Gold-Pickup-Sprite (32x32, Goldmuenzen) ---
+        this.goldSprite = this._createSpriteCanvas(32, 32, (ctx) => {
+            ctx.fillStyle = '#ffcc00';
+            ctx.beginPath(); ctx.arc(16, 18, 12, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#ffdd44';
+            ctx.beginPath(); ctx.arc(14, 15, 8, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#fff8cc';
+            ctx.beginPath(); ctx.arc(12, 12, 4, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = '#cc9900'; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.arc(16, 18, 12, 0, Math.PI * 2); ctx.stroke();
+        });
+
+        // --- Grosser Schatz-Sprite (32x32, Truhe) ---
+        this.treasureSprite = this._createSpriteCanvas(32, 32, (ctx) => {
+            ctx.fillStyle = '#8B4513';
+            ctx.fillRect(4, 12, 24, 16);
+            ctx.fillStyle = '#A0522D';
+            ctx.fillRect(4, 8, 24, 8);
+            ctx.fillStyle = '#FFD700';
+            ctx.fillRect(13, 10, 6, 4);
+            ctx.fillRect(6, 14, 20, 2);
+            ctx.fillStyle = '#FFCC00';
+            ctx.fillRect(8, 6, 16, 6);
+            ctx.fillStyle = '#FFF8DC';
+            ctx.fillRect(12, 4, 8, 4);
+        });
+
+        // --- Shotgun-Pickup-Sprite (32x32) ---
+        this.shotgunSprite = this._createSpriteCanvas(32, 32, (ctx) => {
+            ctx.fillStyle = '#555';
+            ctx.fillRect(4, 14, 24, 5);
+            ctx.fillStyle = '#6B4226';
+            ctx.fillRect(2, 16, 12, 8);
+            ctx.fillStyle = '#333';
+            ctx.fillRect(24, 13, 6, 7);
+            // Gelber Rand als Highlight
+            ctx.strokeStyle = '#ffcc00'; ctx.lineWidth = 1;
+            ctx.strokeRect(1, 12, 30, 14);
+        });
+
+        // --- MG-Pickup-Sprite (32x32) ---
+        this.mgSprite = this._createSpriteCanvas(32, 32, (ctx) => {
+            ctx.fillStyle = '#444';
+            ctx.fillRect(2, 14, 28, 4);
+            ctx.fillRect(8, 10, 4, 12);
+            ctx.fillStyle = '#333';
+            ctx.fillRect(26, 12, 4, 8);
+            ctx.fillStyle = '#6B4226';
+            ctx.fillRect(12, 18, 10, 6);
+            // Gelber Rand als Highlight
+            ctx.strokeStyle = '#ffcc00'; ctx.lineWidth = 1;
+            ctx.strokeRect(1, 9, 30, 16);
         });
     },
 
@@ -99,26 +209,20 @@ const Renderer = {
         const sprite = this._createSpriteCanvas(64, 64, (ctx) => {
             const dark = `rgb(${Math.max(0,r-60)},${Math.max(0,g-60)},${Math.max(0,b-60)})`;
             const light = `rgb(${Math.min(255,r+40)},${Math.min(255,g+40)},${Math.min(255,b+40)})`;
-            // Koerper
             ctx.fillStyle = hexColor;
             ctx.fillRect(18, 22, 28, 30);
             ctx.fillRect(10, 24, 44, 10);
-            // Kopf
             ctx.fillStyle = light;
             ctx.beginPath(); ctx.arc(32, 16, 11, 0, Math.PI * 2); ctx.fill();
-            // Helm
             ctx.fillStyle = dark;
             ctx.fillRect(21, 6, 22, 10);
             ctx.fillRect(19, 10, 26, 4);
-            // Augen
             ctx.fillStyle = '#ffffff';
             ctx.fillRect(26, 14, 4, 3);
             ctx.fillRect(34, 14, 4, 3);
-            // Beine
             ctx.fillStyle = dark;
             ctx.fillRect(20, 52, 10, 12);
             ctx.fillRect(34, 52, 10, 12);
-            // Waffe
             ctx.fillStyle = '#444';
             ctx.fillRect(48, 28, 12, 4);
             ctx.fillRect(54, 26, 4, 8);
@@ -130,7 +234,6 @@ const Renderer = {
 
     // ============================================
     // Haupt-Renderfunktion pro Frame
-    // remotePlayers: Array von Remote-Spieler-Objekten (MP)
     // ============================================
     renderFrame(player, enemies, pickups, remotePlayers) {
         const ctx = this.ctx;
@@ -202,18 +305,27 @@ const Renderer = {
         }
     },
 
-    // Alle Sprites als Billboards zeichnen (Gegner, Spieler, Pickups)
+    // Alle Sprites als Billboards zeichnen
     _drawSprites(ctx, player, enemies, pickups, remotePlayers) {
         const sprites = [];
 
-        // --- Gegner (Singleplayer) ---
+        // --- Gegner ---
         for (const e of enemies) {
             if (!e.alive) continue;
             const dx = e.x - player.x, dy = e.y - player.y;
+            let sprite;
+            if (e.boss) {
+                sprite = e.hurtTimer > 0 ? this.bossHurtSprite : this.bossSprite;
+            } else {
+                sprite = e.hurtTimer > 0 ? this.enemyHurtSprite : this.enemySprite;
+            }
             sprites.push({
                 x: e.x, y: e.y,
                 dist: dx * dx + dy * dy,
-                sprite: e.hurtTimer > 0 ? this.enemyHurtSprite : this.enemySprite
+                sprite: sprite,
+                scale: e.boss ? 1.6 : 1.0,
+                bossHP: e.boss ? e.health : 0,
+                bossMaxHP: e.boss ? e.maxHealth : 0
             });
         }
 
@@ -232,15 +344,23 @@ const Renderer = {
             });
         }
 
-        // --- Pickups ---
+        // --- Pickups (verschiedene Sprites je nach Typ) ---
         for (const p of pickups) {
             if (!p.active) continue;
             const dx = p.x - player.x, dy = p.y - player.y;
+
+            // Sprite basierend auf Typ waehlen
+            let spriteImg = this.pickupSprite;
+            if (p.type === 'gold') spriteImg = this.goldSprite;
+            if (p.type === 'gold_big') spriteImg = this.treasureSprite;
+            if (p.type === 'weapon_shotgun') spriteImg = this.shotgunSprite;
+            if (p.type === 'weapon_mg') spriteImg = this.mgSprite;
+
             sprites.push({
                 x: p.x, y: p.y,
                 dist: dx * dx + dy * dy,
-                sprite: this.pickupSprite,
-                yOffset: Math.sin(Date.now() * 0.003 + p.bobPhase) * 0.1
+                sprite: spriteImg,
+                yOffset: Math.sin(Date.now() * 0.003 + (p.bobPhase || 0)) * 0.1
             });
         }
 
@@ -263,7 +383,8 @@ const Renderer = {
             if (transformY <= 0.1) continue;
 
             const screenX = Math.floor(w / 2 * (1 + transformX / transformY));
-            const spriteHeight = Math.abs(Math.floor(h / transformY));
+            const scaleF = s.scale || 1.0;
+            const spriteHeight = Math.abs(Math.floor(h / transformY * scaleF));
             const spriteWidth = spriteHeight;
             const yOff = s.yOffset ? Math.floor(s.yOffset * h / transformY) : 0;
 
@@ -288,16 +409,35 @@ const Renderer = {
                 }
             }
 
+            // Boss-Lebensbalken ueber dem Boss
+            if (s.bossHP > 0 && visibleCols > 0 && transformY < 25) {
+                const barW = Math.min(80, spriteWidth * 0.8);
+                const barH = 6;
+                const barX = screenX - barW / 2;
+                const barY = Math.max(8, drawStartY - 14);
+                const hpRatio = s.bossHP / s.bossMaxHP;
+                // Hintergrund
+                ctx.fillStyle = '#000';
+                ctx.fillRect(barX - 1, barY - 1, barW + 2, barH + 2);
+                // HP-Balken (rot -> gelb -> gruen)
+                ctx.fillStyle = hpRatio > 0.5 ? '#ff4400' : '#ff0000';
+                ctx.fillRect(barX, barY, barW * hpRatio, barH);
+                // Text
+                ctx.font = 'bold 9px Courier New';
+                ctx.textAlign = 'center';
+                ctx.fillStyle = '#ffcc00';
+                ctx.fillText('BOSS', screenX, barY - 2);
+                ctx.textAlign = 'left';
+            }
+
             // Nametag ueber sichtbaren Spielern zeichnen
             if (s.name && visibleCols > 0 && transformY < 20) {
                 ctx.font = 'bold 11px Courier New';
                 ctx.textAlign = 'center';
                 const tagY = Math.max(14, drawStartY - 8);
-                // Schwarzer Rand fuer Lesbarkeit
                 ctx.strokeStyle = '#000';
                 ctx.lineWidth = 3;
                 ctx.strokeText(s.name, screenX, tagY);
-                // Farbiger Text
                 ctx.fillStyle = s.nameColor || '#fff';
                 ctx.fillText(s.name, screenX, tagY);
                 ctx.textAlign = 'left';
@@ -305,13 +445,25 @@ const Renderer = {
         }
     },
 
-    // Waffe am unteren Bildschirmrand zeichnen
+    // ============================================
+    // Waffen-Rendering (verschiedene Waffen)
+    // ============================================
     _drawWeapon(ctx, player) {
+        const weapon = player.currentWeapon || 'pistol';
+        switch (weapon) {
+            case 'shotgun':    this._drawShotgun(ctx, player);    break;
+            case 'machinegun': this._drawMachineGun(ctx, player); break;
+            default:           this._drawPistol(ctx, player);     break;
+        }
+    },
+
+    // --- Pistole (Original-Waffe) ---
+    _drawPistol(ctx, player) {
         const cx = this.width / 2;
         const baseY = this.height - 120;
-        const bobX = Math.sin(player.weaponBob) * 6;
-        const bobY = Math.abs(Math.cos(player.weaponBob)) * 4;
-        const kickY = player.weaponKick * 30;
+        const bobX = Math.sin(player.weaponBob) * 8;
+        const bobY = Math.abs(Math.cos(player.weaponBob * 2)) * 6;
+        const kickY = player.weaponKick * 35;
         const wx = cx + bobX - 32;
         const wy = baseY + bobY + kickY;
 
@@ -345,5 +497,97 @@ const Renderer = {
         ctx.fillStyle = '#c4956a';
         ctx.fillRect(wx + 18, wy + 20, 26, 16);
         ctx.fillRect(wx + 14, wy + 24, 8, 12);
+    },
+
+    // --- Schrotflinte (breiter, massiver) ---
+    _drawShotgun(ctx, player) {
+        const cx = this.width / 2;
+        const baseY = this.height - 130;
+        const bobX = Math.sin(player.weaponBob) * 6;
+        const bobY = Math.abs(Math.cos(player.weaponBob * 2)) * 5;
+        const kickY = player.weaponKick * 45;
+        const wx = cx + bobX - 40;
+        const wy = baseY + bobY + kickY;
+
+        // Muendungsfeuer (groesser als Pistole)
+        if (player.muzzleFlash > 0) {
+            ctx.fillStyle = '#ffaa00';
+            ctx.beginPath(); ctx.arc(cx + bobX, wy - 30, 30, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#ffff44';
+            ctx.beginPath(); ctx.arc(cx + bobX, wy - 30, 16, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath(); ctx.arc(cx + bobX, wy - 30, 6, 0, Math.PI * 2); ctx.fill();
+        }
+
+        // Doppellauf
+        ctx.fillStyle = '#2a2a2a';
+        ctx.fillRect(wx + 26, wy - 28, 12, 8);
+        ctx.fillRect(wx + 42, wy - 28, 12, 8);
+        // Lauf-Verbindung
+        ctx.fillStyle = '#333';
+        ctx.fillRect(wx + 20, wy - 20, 40, 16);
+        // Pump
+        ctx.fillStyle = '#505050';
+        ctx.fillRect(wx + 16, wy - 4, 48, 8);
+        ctx.fillStyle = '#3a3a3a';
+        ctx.fillRect(wx + 18, wy - 2, 44, 4);
+        // Griff
+        ctx.fillStyle = '#4a3020';
+        ctx.fillRect(wx + 28, wy + 4, 24, 40);
+        ctx.fillStyle = '#3a2518';
+        for (let i = 0; i < 6; i++) ctx.fillRect(wx + 29, wy + 8 + i * 6, 22, 1);
+        // Kolben
+        ctx.fillStyle = '#5a3828';
+        ctx.fillRect(wx + 24, wy + 30, 32, 18);
+        // Hand
+        ctx.fillStyle = '#c4956a';
+        ctx.fillRect(wx + 22, wy + 20, 30, 14);
+        ctx.fillRect(wx + 16, wy + 26, 10, 12);
+    },
+
+    // --- Maschinengewehr (lang, schmal, mit Magazin) ---
+    _drawMachineGun(ctx, player) {
+        const cx = this.width / 2;
+        const baseY = this.height - 120;
+        const bobX = Math.sin(player.weaponBob * 1.5) * 5;
+        const bobY = Math.abs(Math.cos(player.weaponBob * 3)) * 4;
+        const kickY = player.weaponKick * 20;
+        const wx = cx + bobX - 36;
+        const wy = baseY + bobY + kickY;
+
+        // Muendungsfeuer (kleiner, haeufiger)
+        if (player.muzzleFlash > 0) {
+            ctx.fillStyle = '#ffaa00';
+            ctx.beginPath(); ctx.arc(cx + bobX + 4, wy - 22, 16, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#ffff44';
+            ctx.beginPath(); ctx.arc(cx + bobX + 4, wy - 22, 8, 0, Math.PI * 2); ctx.fill();
+        }
+
+        // Langer Lauf
+        ctx.fillStyle = '#2a2a2a';
+        ctx.fillRect(wx + 28, wy - 24, 16, 10);
+        // Gehaeuse
+        ctx.fillStyle = '#3a3a3a';
+        ctx.fillRect(wx + 14, wy - 14, 44, 16);
+        ctx.fillStyle = '#505050';
+        ctx.fillRect(wx + 16, wy - 12, 40, 2);
+        ctx.fillRect(wx + 16, wy - 4, 40, 2);
+        // Magazin (links unten)
+        ctx.fillStyle = '#2a2a2a';
+        ctx.fillRect(wx + 18, wy + 2, 10, 24);
+        ctx.fillStyle = '#222';
+        ctx.fillRect(wx + 20, wy + 4, 6, 20);
+        // Griff
+        ctx.fillStyle = '#4a3020';
+        ctx.fillRect(wx + 32, wy + 2, 18, 35);
+        ctx.fillStyle = '#3a2518';
+        for (let i = 0; i < 5; i++) ctx.fillRect(wx + 33, wy + 6 + i * 6, 16, 1);
+        // Tragegriff oben
+        ctx.fillStyle = '#333';
+        ctx.fillRect(wx + 30, wy - 18, 14, 4);
+        // Hand
+        ctx.fillStyle = '#c4956a';
+        ctx.fillRect(wx + 28, wy + 18, 26, 14);
+        ctx.fillRect(wx + 10, wy + 0, 10, 10);
     }
 };

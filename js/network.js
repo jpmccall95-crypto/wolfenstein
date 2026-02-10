@@ -1,6 +1,7 @@
 // ============================================
 // network.js - Client-seitige Netzwerk-Schicht
-// Socket.io Kommunikation, Interpolation, Chat
+// Lobby, Interpolation, Chat, Co-op, Ping
+// Erweitert um Tuer-Sync, Waffen, Gold
 // ============================================
 
 const Network = {
@@ -9,13 +10,29 @@ const Network = {
     playerColor: null,
     playerName: '',
     connected: false,
-    available: false, // Ist Socket.io geladen?
+    available: false,
+
+    // Lobby-Zustand
+    lobby: {
+        hostId: null,
+        mode: 'deathmatch',
+        state: 'waiting',
+        players: []
+    },
+    gameMode: 'deathmatch',
+    gameStarted: false,
 
     // Remote-Spieler (id -> Spielerdaten)
     remotePlayers: {},
-
-    // Server-Zustand des lokalen Spielers (fuer Korrektur)
     _serverState: null,
+
+    // Co-op Zustand
+    coopEnemies: [],
+    coopPickups: [],
+    coopWave: 0,
+    coopBetweenWaves: false,
+    coopCountdown: 0,
+    coopGameOver: false,
 
     // Kill-Feed
     killFeed: [],
@@ -28,8 +45,24 @@ const Network = {
     localKills: 0,
     localDeaths: 0,
 
+    // Tod-Info
+    lastKillerName: '',
+    deathTime: 0,
+
+    // Ping-Messung
+    ping: 0,
+    _pingInterval: null,
+
     // Callbacks
     onHit: null,
+    onLobbyUpdate: null,
+    onGameStart: null,
+    onReturnToLobby: null,
+    onPickup: null,
+    onShotHit: null,
+    onWaveStart: null,
+    onDoorOpen: null,
+    onEnemyKilled: null,
 
     // Pruefen ob Socket.io verfuegbar ist
     init() {
@@ -42,7 +75,7 @@ const Network = {
         this.playerName = name;
         this.socket = io();
 
-        // Willkommen vom Server
+        // --- Willkommen vom Server ---
         this.socket.on('welcome', (data) => {
             this.playerId = data.id;
             this.playerColor = data.color;
@@ -50,23 +83,48 @@ const Network = {
             if (onReady) onReady();
         });
 
-        // Spielzustand-Updates (20 Hz)
+        // --- Lobby-Update ---
+        this.socket.on('lobbyUpdate', (data) => {
+            this.lobby = data;
+            if (this.onLobbyUpdate) this.onLobbyUpdate(data);
+        });
+
+        // --- Spiel startet ---
+        this.socket.on('gameStart', (data) => {
+            this.gameMode = data.mode;
+            this.gameStarted = true;
+            this.coopGameOver = false;
+            this.coopWave = 0;
+            if (this.onGameStart) this.onGameStart(data);
+        });
+
+        // --- Zurueck in die Lobby ---
+        this.socket.on('returnToLobby', () => {
+            this.gameStarted = false;
+            this.coopGameOver = false;
+            this.coopWave = 0;
+            this.coopEnemies = [];
+            this.coopPickups = [];
+            this.localKills = 0;
+            this.localDeaths = 0;
+            if (this.onReturnToLobby) this.onReturnToLobby();
+        });
+
+        // --- Spielzustand-Updates (20 Hz) ---
         this.socket.on('gameState', (state) => {
             this._handleGameState(state);
         });
 
-        // Neuer Spieler beigetreten
+        // --- Spieler beigetreten / verlassen ---
         this.socket.on('playerJoined', (data) => {
             this._addChat('SERVER', data.name + ' ist beigetreten', '#888');
         });
-
-        // Spieler hat verlassen
         this.socket.on('playerLeft', (data) => {
             delete this.remotePlayers[data.id];
             this._addChat('SERVER', data.name + ' hat verlassen', '#888');
         });
 
-        // Kill-Event
+        // --- Kill-Event ---
         this.socket.on('kill', (data) => {
             this.killFeed.push({
                 killerName: data.killerName,
@@ -74,20 +132,74 @@ const Network = {
                 time: Date.now()
             });
             if (data.killerId === this.playerId) this.localKills++;
-            if (data.victimId === this.playerId) this.localDeaths++;
+            if (data.victimId === this.playerId) {
+                this.localDeaths++;
+                this.lastKillerName = data.killerName;
+                this.deathTime = Date.now();
+            }
         });
 
-        // Treffer-Event (wir wurden getroffen)
-        this.socket.on('hit', () => {
-            if (this.onHit) this.onHit();
+        // --- Treffer-Event (wir wurden getroffen) ---
+        this.socket.on('hit', (data) => {
+            if (this.onHit) this.onHit(data);
         });
 
-        // Chat-Nachricht empfangen
+        // --- Schuss-Treffer-Bestaetigung ---
+        this.socket.on('shotHit', () => {
+            if (this.onShotHit) this.onShotHit();
+        });
+
+        // --- Chat empfangen ---
         this.socket.on('chat', (data) => {
             this._addChat(data.name, data.message, data.color);
         });
 
-        // Verbindungsfehler behandeln
+        // --- Tuer geoeffnet ---
+        this.socket.on('doorOpened', (data) => {
+            if (typeof Doors !== 'undefined') {
+                Doors.openDoor(data.key);
+            }
+            if (this.onDoorOpen) this.onDoorOpen(data);
+        });
+
+        // --- Co-op Events ---
+        this.socket.on('waveStart', (data) => {
+            this.coopWave = data.wave;
+            if (data.boss) {
+                this._addChat('SERVER', 'BOSS WELLE ' + data.wave + '! ' + data.enemyCount + ' Gegner + BOSS!', '#ff4444');
+            } else {
+                this._addChat('SERVER', 'Welle ' + data.wave + ': ' + data.enemyCount + ' Gegner!', '#ffcc00');
+            }
+            if (this.onWaveStart) this.onWaveStart(data);
+        });
+
+        this.socket.on('enemyKilled', (data) => {
+            this.killFeed.push({
+                killerName: data.killerName,
+                victimName: data.boss ? 'BOSS' : 'Gegner',
+                time: Date.now()
+            });
+            if (this.onEnemyKilled) this.onEnemyKilled(data);
+        });
+
+        this.socket.on('pickupCollected', (data) => {
+            if (data.playerId === this.playerId) {
+                if (this.onPickup) this.onPickup();
+            }
+        });
+
+        this.socket.on('coopGameOver', (data) => {
+            this.coopGameOver = true;
+            this.coopWave = data.wave;
+        });
+
+        // --- Ping-Antwort ---
+        this.socket.on('pong', (data) => {
+            this.ping = Date.now() - data.time;
+            this.socket.volatile.emit('reportPing', { ping: this.ping });
+        });
+
+        // --- Verbindungsfehler ---
         this.socket.on('connect_error', () => {
             const btn = document.getElementById('joinBtn');
             if (btn) {
@@ -96,10 +208,27 @@ const Network = {
             }
         });
 
+        // --- Verbindung hergestellt ---
         this.socket.on('connect', () => {
-            // Beitreten sobald Socket verbunden ist
             this.socket.emit('join', { name: name });
+
+            if (this._pingInterval) clearInterval(this._pingInterval);
+            this._pingInterval = setInterval(() => {
+                this.socket.emit('ping', { time: Date.now() });
+            }, 2000);
         });
+    },
+
+    // Modus waehlen (nur Host)
+    selectMode(mode) {
+        if (!this.connected) return;
+        this.socket.emit('selectMode', { mode });
+    },
+
+    // Spiel starten (nur Host)
+    startGame() {
+        if (!this.connected) return;
+        this.socket.emit('startGame');
     },
 
     // Eingabe an Server senden
@@ -110,7 +239,8 @@ const Network = {
             backward: Input.isKeyDown('KeyS'),
             left:     Input.isKeyDown('KeyA'),
             right:    Input.isKeyDown('KeyD'),
-            angle:    player.angle
+            angle:    player.angle,
+            weapon:   player.currentWeapon
         });
     },
 
@@ -118,6 +248,16 @@ const Network = {
     sendShoot() {
         if (!this.connected) return;
         this.socket.emit('shoot');
+    },
+
+    // Interaktion an Server senden (Tuer oeffnen)
+    sendInteract(player) {
+        if (!this.connected) return;
+        this.socket.emit('interact', {
+            x: player.x,
+            y: player.y,
+            angle: player.angle
+        });
     },
 
     // Chat-Nachricht senden
@@ -132,126 +272,182 @@ const Network = {
         if (this.chatMessages.length > 30) this.chatMessages.shift();
     },
 
-    // Spielzustand vom Server verarbeiten
+    // Spielzustand vom Server verarbeiten (Delta-Compression)
     _handleGameState(state) {
-        for (const id in state.players) {
-            const pd = state.players[id];
+        const isFull = state.f === 1;
 
-            // Eigener Spieler -> Server-Korrektur speichern
+        for (const id in state.p) {
+            const pd = state.p[id];
+
             if (id === this.playerId) {
-                this._serverState = pd;
-                // Kills/Deaths vom Server uebernehmen
-                this.localKills = pd.kills;
-                this.localDeaths = pd.deaths;
+                this._serverState = {
+                    x: pd.x, y: pd.y,
+                    health: pd.h, alive: pd.al
+                };
+                if (pd.k !== undefined) this.localKills = pd.k;
+                if (pd.d !== undefined) this.localDeaths = pd.d;
                 continue;
             }
 
-            // Remote-Spieler aktualisieren
             if (!this.remotePlayers[id]) {
-                // Neuer Spieler -> sofort an richtige Position setzen
                 this.remotePlayers[id] = {
-                    ...pd,
+                    x: pd.x, y: pd.y,
+                    angle: pd.a || 0,
+                    health: pd.h !== undefined ? pd.h : 100,
+                    alive: pd.al !== undefined ? pd.al : true,
+                    name: pd.n || '???',
+                    color: pd.c || '#ff4444',
+                    kills: pd.k || 0,
+                    deaths: pd.d || 0,
                     displayX: pd.x,
                     displayY: pd.y,
-                    displayAngle: pd.angle
+                    displayAngle: pd.a || 0
                 };
             } else {
                 const rp = this.remotePlayers[id];
-                rp.x = pd.x;
-                rp.y = pd.y;
-                rp.angle = pd.angle;
-                rp.health = pd.health;
-                rp.alive = pd.alive;
-                rp.name = pd.name;
-                rp.color = pd.color;
-                rp.kills = pd.kills;
-                rp.deaths = pd.deaths;
+                if (pd.x !== undefined) rp.x = pd.x;
+                if (pd.y !== undefined) rp.y = pd.y;
+                if (pd.a !== undefined) rp.angle = pd.a;
+                if (pd.h !== undefined) rp.health = pd.h;
+                if (pd.al !== undefined) rp.alive = pd.al;
+                if (pd.n !== undefined) rp.name = pd.n;
+                if (pd.c !== undefined) rp.color = pd.c;
+                if (pd.k !== undefined) rp.kills = pd.k;
+                if (pd.d !== undefined) rp.deaths = pd.d;
             }
         }
 
-        // Spieler die nicht mehr im State sind entfernen
-        for (const id in this.remotePlayers) {
-            if (!state.players[id]) {
+        if (state.r) {
+            for (const id of state.r) {
                 delete this.remotePlayers[id];
             }
         }
+
+        if (isFull) {
+            for (const id in this.remotePlayers) {
+                if (!state.p[id]) {
+                    delete this.remotePlayers[id];
+                }
+            }
+        }
+
+        // Co-op Zustand
+        if (state.enemies !== undefined) {
+            this._updateCoopEnemies(state.enemies);
+            this.coopPickups = state.pickups || [];
+            this.coopWave = state.wave || 0;
+            this.coopBetweenWaves = state.betweenWaves || false;
+            this.coopCountdown = state.countdown || 0;
+            if (state.gameOver) this.coopGameOver = true;
+        }
+
+        // Tuer-Zustaende synchronisieren
+        if (state.doors !== undefined && typeof Doors !== 'undefined') {
+            Doors.deserialize(state.doors);
+        }
     },
 
-    // Pro Frame: Interpolation + Aufraeumen
+    // Co-op Gegner interpolieren
+    _updateCoopEnemies(serverEnemies) {
+        const newList = [];
+        for (const se of serverEnemies) {
+            const existing = this.coopEnemies.find(e => e.id === se.id);
+            if (existing) {
+                existing.targetX = se.x;
+                existing.targetY = se.y;
+                existing.health = se.health;
+                existing.maxHealth = se.maxHealth;
+                existing.alive = se.alive;
+                existing.hurtTimer = se.hurtTimer;
+                newList.push(existing);
+            } else {
+                newList.push({
+                    ...se,
+                    displayX: se.x,
+                    displayY: se.y,
+                    targetX: se.x,
+                    targetY: se.y
+                });
+            }
+        }
+        this.coopEnemies = newList;
+    },
+
+    // Pro Frame: Interpolation und Aufraeumen
     update(dt) {
         const lerp = Math.min(1.0, dt * 15);
 
         for (const rp of Object.values(this.remotePlayers)) {
-            // Position sanft interpolieren
             rp.displayX += (rp.x - rp.displayX) * lerp;
             rp.displayY += (rp.y - rp.displayY) * lerp;
-
-            // Winkel interpolieren (kuerzester Weg)
             let ad = rp.angle - rp.displayAngle;
             while (ad > Math.PI) ad -= Math.PI * 2;
             while (ad < -Math.PI) ad += Math.PI * 2;
             rp.displayAngle += ad * lerp;
         }
 
-        // Kill-Feed: alte Eintraege entfernen
+        for (const e of this.coopEnemies) {
+            e.displayX += (e.targetX - e.displayX) * lerp;
+            e.displayY += (e.targetY - e.displayY) * lerp;
+        }
+
         const now = Date.now();
         this.killFeed = this.killFeed.filter(k => now - k.time < this.killFeedDuration);
     },
 
-    // Server-Korrektur auf lokalen Spieler anwenden
+    // Server-Korrektur auf lokalen Spieler
     correctLocalPlayer(player) {
         if (!this._serverState) return;
         const s = this._serverState;
 
-        // Position korrigieren
         const dx = s.x - player.x;
         const dy = s.y - player.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
 
         if (dist > 0.5) {
-            // Grosse Abweichung -> sofort korrigieren (z.B. nach Respawn)
             player.x = s.x;
             player.y = s.y;
         } else if (dist > 0.01) {
-            // Kleine Abweichung -> sanft korrigieren
             player.x += dx * 0.2;
             player.y += dy * 0.2;
         }
 
-        // Gesundheit und Status vom Server uebernehmen
         player.health = s.health;
         player.alive = s.alive;
-
         this._serverState = null;
     },
 
-    // Scoreboard-Daten zusammenstellen
+    // Scoreboard
     getScoreboard() {
         const scores = [];
 
-        // Lokaler Spieler
         if (this.connected) {
             scores.push({
                 name: this.playerName,
                 color: this.playerColor,
                 kills: this.localKills,
                 deaths: this.localDeaths,
+                ping: this.ping,
                 isLocal: true
             });
         }
 
-        // Remote-Spieler
         for (const rp of Object.values(this.remotePlayers)) {
             scores.push({
                 name: rp.name,
                 color: rp.color,
                 kills: rp.kills,
                 deaths: rp.deaths,
+                ping: '-',
                 isLocal: false
             });
         }
 
         scores.sort((a, b) => b.kills - a.kills);
         return scores;
+    },
+
+    isHost() {
+        return this.playerId === this.lobby.hostId;
     }
 };

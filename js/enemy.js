@@ -134,17 +134,43 @@ class Enemy {
 }
 
 // ============================================
-// Pickup-Klasse (Health-Items)
+// Pickup-Klasse (Items die man aufheben kann)
+// Typen: health, gold, gold_big, weapon_shotgun, weapon_mg
 // ============================================
 
 class Pickup {
     constructor(x, y, type) {
         this.x = x;
         this.y = y;
-        this.type = type; // 'health'
+        this.type = type;
         this.active = true;
-        this.healAmount = 25;
         this.radius = 0.3;
-        this.bobPhase = Math.random() * Math.PI * 2; // Schwebende Animation
+        this.bobPhase = Math.random() * Math.PI * 2;
+
+        // Typ-abhaengige Werte
+        this.healAmount = 0;
+        this.goldValue = 0;
+        this.weaponType = null;
+        this.weaponCost = 0;
+
+        switch (type) {
+            case 'health':
+                this.healAmount = 25;
+                break;
+            case 'gold':
+                this.goldValue = 10 + Math.floor(Math.random() * 15);
+                break;
+            case 'gold_big':
+                this.goldValue = 50;
+                break;
+            case 'weapon_shotgun':
+                this.weaponType = 'shotgun';
+                this.weaponCost = 50;
+                break;
+            case 'weapon_mg':
+                this.weaponType = 'machinegun';
+                this.weaponCost = 100;
+                break;
+        }
     }
 }

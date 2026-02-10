@@ -1,6 +1,7 @@
 // ============================================
 // input.js - Tastatur- und Maus-Eingabe
-// Erweitert um Chat-Modus und Scoreboard
+// Erweitert um Chat, Scoreboard, Interaktion,
+// Waffenwechsel per Scrollrad
 // ============================================
 
 const Input = {
@@ -20,6 +21,13 @@ const Input = {
     // Schuss-Erkennung (einmalig pro Druck)
     shootPressed: false,
     _shootWasPressed: false,
+
+    // Interaktion (E-Taste, einmalig pro Druck)
+    interactPressed: false,
+    _interactWasPressed: false,
+
+    // Scrollrad (fuer Waffenwechsel)
+    scrollDelta: 0,
 
     // Chat-Modus (Tasteneingaben gehen in den Chat)
     chatActive: false,
@@ -56,7 +64,7 @@ const Input = {
 
             // Normaler Spielinput
             this.keys[e.code] = true;
-            if (['Space', 'KeyW', 'KeyA', 'KeyS', 'KeyD'].includes(e.code)) {
+            if (['Space', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyE'].includes(e.code)) {
                 e.preventDefault();
             }
         });
@@ -83,6 +91,13 @@ const Input = {
         document.addEventListener('mouseup', () => {
             this.mouseDown = false;
         });
+
+        // --- Scrollrad (Waffenwechsel) ---
+        document.addEventListener('wheel', (e) => {
+            if (this.chatActive || !this.pointerLocked) return;
+            e.preventDefault();
+            this.scrollDelta += Math.sign(e.deltaY);
+        }, { passive: false });
 
         // --- Pointer Lock Status ---
         document.addEventListener('pointerlockchange', () => {
@@ -144,10 +159,18 @@ const Input = {
     update() {
         if (this.chatActive) {
             this.shootPressed = false;
+            this.interactPressed = false;
             return;
         }
+
+        // Schuss-Erkennung
         const shootDown = this.isKeyDown('Space') || this.mouseDown;
         this.shootPressed = shootDown && !this._shootWasPressed;
         this._shootWasPressed = shootDown;
+
+        // Interaktions-Erkennung (E-Taste, einmalig)
+        const interactDown = this.isKeyDown('KeyE');
+        this.interactPressed = interactDown && !this._interactWasPressed;
+        this._interactWasPressed = interactDown;
     }
 };
