@@ -56,6 +56,12 @@ let tickCount = 0;
 const FULL_STATE_INTERVAL = 5; // Alle 5 Ticks ein voller Snapshot
 const lastSentState = new Map(); // id -> letzter gesendeter Zustand
 
+// Delta-Compression fuer Co-op Gegner
+const lastSentEnemies = new Map(); // enemyId -> letzte gesendete Daten
+
+// Delta-Compression fuer Tueren
+let lastSentDoors = null;
+
 // Lag-Compensation: Positionshistorie (1 Sekunde Ring-Buffer)
 const HISTORY_SIZE = 20;
 const positionHistory = [];
@@ -287,6 +293,8 @@ function resetToLobby() {
     coop.pickups = [];
     coop.nextEnemyId = 0;
     coop.nextPickupId = 0;
+    lastSentEnemies.clear();
+    lastSentDoors = null;
 
     for (const [, p] of players) {
         p.kills = 0;
@@ -960,14 +968,34 @@ setInterval(() => {
     if (removed.length > 0) state.r = removed;
     if (isFullTick) state.f = 1;
 
-    // Co-op: Gegner, Pickups und Wellen-Info (gerundete Koordinaten)
+    // Co-op: Gegner mit Delta-Compression
     if (lobby.mode === 'coop') {
-        state.enemies = coop.enemies.map(e => ({
-            id: e.id, x: round2(e.x), y: round2(e.y),
-            health: e.health, maxHealth: e.maxHealth,
-            alive: e.alive, hurtTimer: e.hurtTimer > 0 ? round2(e.hurtTimer) : 0,
-            boss: e.boss || false
-        }));
+        const enemyUpdates = [];
+        for (const e of coop.enemies) {
+            const curr = {
+                id: e.id, x: round2(e.x), y: round2(e.y),
+                health: e.health, maxHealth: e.maxHealth,
+                alive: e.alive, hurtTimer: e.hurtTimer > 0 ? round2(e.hurtTimer) : 0,
+                boss: e.boss || false
+            };
+            const last = lastSentEnemies.get(e.id);
+            // Nur senden wenn sich etwas geaendert hat oder voller Tick
+            if (isFullTick || !last ||
+                curr.x !== last.x || curr.y !== last.y ||
+                curr.health !== last.health || curr.alive !== last.alive ||
+                curr.hurtTimer !== last.hurtTimer) {
+                enemyUpdates.push(curr);
+                lastSentEnemies.set(e.id, curr);
+            }
+        }
+        // Tote Gegner aus Cache entfernen
+        for (const [id] of lastSentEnemies) {
+            if (!coop.enemies.find(e => e.id === id)) {
+                lastSentEnemies.delete(id);
+            }
+        }
+        state.enemies = enemyUpdates;
+        state.ef = isFullTick ? 1 : 0; // enemies-full Flag
         state.pickups = coop.pickups.filter(pk => pk.active).map(pk => ({
             id: pk.id, x: round2(pk.x), y: round2(pk.y)
         }));
@@ -977,8 +1005,12 @@ setInterval(() => {
         state.gameOver = coop.gameOver;
     }
 
-    // Tuer-Zustaende mitsenden
-    state.doors = Doors.serialize();
+    // Tuer-Zustaende nur senden wenn sich etwas geaendert hat
+    const currentDoors = Doors.serialize();
+    if (isFullTick || currentDoors !== lastSentDoors) {
+        state.doors = currentDoors;
+        lastSentDoors = currentDoors;
+    }
 
     io.volatile.emit('gameState', state);
 

@@ -331,9 +331,9 @@ const Network = {
             }
         }
 
-        // Co-op Zustand
+        // Co-op Zustand (mit Delta-Compression fuer Gegner)
         if (state.enemies !== undefined) {
-            this._updateCoopEnemies(state.enemies);
+            this._updateCoopEnemies(state.enemies, state.ef === 1);
             this.coopPickups = state.pickups || [];
             this.coopWave = state.wave || 0;
             this.coopBetweenWaves = state.betweenWaves || false;
@@ -347,36 +347,51 @@ const Network = {
         }
     },
 
-    // Co-op Gegner interpolieren
-    _updateCoopEnemies(serverEnemies) {
-        const newList = [];
+    // Co-op Gegner interpolieren (mit Delta-Compression)
+    _updateCoopEnemies(serverEnemies, isFull) {
+        if (isFull) {
+            // Voller Snapshot: Alle Gegner ersetzen, fehlende entfernen
+            const idSet = new Set(serverEnemies.map(e => e.id));
+            this.coopEnemies = this.coopEnemies.filter(e => idSet.has(e.id));
+        }
+
         for (const se of serverEnemies) {
             const existing = this.coopEnemies.find(e => e.id === se.id);
             if (existing) {
+                // Vorherige Position merken fuer sanftere Interpolation
+                existing.prevX = existing.targetX;
+                existing.prevY = existing.targetY;
                 existing.targetX = se.x;
                 existing.targetY = se.y;
-                existing.health = se.health;
-                existing.maxHealth = se.maxHealth;
-                existing.alive = se.alive;
-                existing.hurtTimer = se.hurtTimer;
-                newList.push(existing);
+                existing.interpTime = 0;
+                if (se.health !== undefined) existing.health = se.health;
+                if (se.maxHealth !== undefined) existing.maxHealth = se.maxHealth;
+                if (se.alive !== undefined) existing.alive = se.alive;
+                if (se.hurtTimer !== undefined) existing.hurtTimer = se.hurtTimer;
             } else {
-                newList.push({
+                this.coopEnemies.push({
                     ...se,
                     displayX: se.x,
                     displayY: se.y,
                     targetX: se.x,
-                    targetY: se.y
+                    targetY: se.y,
+                    prevX: se.x,
+                    prevY: se.y,
+                    interpTime: 1
                 });
             }
         }
-        this.coopEnemies = newList;
     },
 
     // Pro Frame: Interpolation und Aufraeumen
-    update(dt) {
-        const lerp = Math.min(1.0, dt * 15);
+    // Tick-Dauer: 1/20 = 50ms, wir interpolieren ueber eine Tick-Dauer
+    _tickDuration: 1 / 20,
 
+    update(dt) {
+        // Sanfterer Lerp-Faktor (dt * 10 statt dt * 15, weniger aggressiv)
+        const lerp = Math.min(1.0, dt * 10);
+
+        // Remote-Spieler interpolieren
         for (const rp of Object.values(this.remotePlayers)) {
             rp.displayX += (rp.x - rp.displayX) * lerp;
             rp.displayY += (rp.y - rp.displayY) * lerp;
@@ -386,9 +401,14 @@ const Network = {
             rp.displayAngle += ad * lerp;
         }
 
+        // Co-op Gegner: zeitbasierte Interpolation (sanfter bei Netzwerk-Jitter)
         for (const e of this.coopEnemies) {
-            e.displayX += (e.targetX - e.displayX) * lerp;
-            e.displayY += (e.targetY - e.displayY) * lerp;
+            e.interpTime = Math.min(1.0, (e.interpTime || 0) + dt / this._tickDuration);
+            const t = e.interpTime;
+            // Smooth-Step fuer noch sanftere Bewegung
+            const smooth = t * t * (3 - 2 * t);
+            e.displayX = e.prevX + (e.targetX - e.prevX) * smooth;
+            e.displayY = e.prevY + (e.targetY - e.prevY) * smooth;
         }
 
         const now = Date.now();
@@ -396,6 +416,7 @@ const Network = {
     },
 
     // Server-Korrektur auf lokalen Spieler
+    // Hoehere Toleranz fuer externen Server (mehr Latenz = groessere Abweichungen)
     correctLocalPlayer(player) {
         if (!this._serverState) return;
         const s = this._serverState;
@@ -404,12 +425,14 @@ const Network = {
         const dy = s.y - player.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
 
-        if (dist > 0.5) {
+        if (dist > 1.0) {
+            // Nur bei sehr grosser Abweichung sofort korrigieren (Teleport)
             player.x = s.x;
             player.y = s.y;
         } else if (dist > 0.01) {
-            player.x += dx * 0.2;
-            player.y += dy * 0.2;
+            // Sanfter korrigieren (0.15 statt 0.2 = weniger Ruckler)
+            player.x += dx * 0.15;
+            player.y += dy * 0.15;
         }
 
         player.health = s.health;
