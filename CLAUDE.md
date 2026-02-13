@@ -14,7 +14,7 @@
 
 ### Git & Hosting Status
 - **GitHub Repo:** https://github.com/jpmccall95-crypto/wolfenstein
-- **Letzter Commit:** `8219df2` (Netzwerk-Optimierung fuer externen Server)
+- **Letzter Commit:** `676bb06` (Solo-Wellenmodus + 8 Waffen: 3 Modi)
 - **Alles committet und auf GitHub gepusht**
 - **Hosting:** Railway (live)
   - **URL: https://wolfenstein.up.railway.app**
@@ -106,7 +106,7 @@
 - Sanftere Server-Korrektur (Snap-Schwelle 0.5 -> 1.0, Lerp 0.2 -> 0.15)
 - Sanfterer Lerp-Faktor fuer Remote-Spieler (dt*15 -> dt*10)
 
-**Solo-Wellenmodus + 8 Waffen** (noch nicht committet)
+**Solo-Wellenmodus + 8 Waffen** (committet)
 - Alter Singleplayer-Modus entfernt, ersetzt durch 3 Modi: SOLO WELLEN, CO-OP, DEATHMATCH
 - Solo-Wellenmodus: Allein gegen Gegnerwellen, komplett offline (client-seitig)
   - Einheitliche Modus-Auswahl im Startscreen mit 3 Buttons
@@ -250,7 +250,7 @@ weapons: {
 - `npm run online` - Server mit ngrok-Anleitung starten
 - `ngrok http 3000` - Tunnel fuer Online-Zugang
 - `docker-compose up` - Docker-Start
-- Singleplayer: index.html direkt im Browser oeffnen
+- Solo-Wellenmodus: index.html direkt im Browser oeffnen (offline)
 
 ### Geloeste Bugs (fuer Kontext)
 1. **Tueren oeffnen sich nicht im MP**: doors.js `init()` konnte auf dem Server nicht auf MAP_DATA zugreifen (war kein Global in Node.js). Loesung: `require('./map.js')` wenn `typeof module !== 'undefined'`.
