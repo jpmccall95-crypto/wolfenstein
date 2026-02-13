@@ -19,7 +19,12 @@ const Renderer = {
     goldSprite: null,
     treasureSprite: null,
     shotgunSprite: null,
+    smgSprite: null,
     mgSprite: null,
+    sniperSprite: null,
+    flamethrowerSprite: null,
+    launcherSprite: null,
+    railgunSprite: null,
     _playerSpriteCache: {}, // Farbe -> Canvas (gecacht)
 
     // Renderer initialisieren
@@ -175,6 +180,20 @@ const Renderer = {
             ctx.strokeRect(1, 12, 30, 14);
         });
 
+        // --- SMG-Pickup-Sprite (32x32) ---
+        this.smgSprite = this._createSpriteCanvas(32, 32, (ctx) => {
+            ctx.fillStyle = '#555';
+            ctx.fillRect(4, 14, 22, 4);
+            ctx.fillStyle = '#444';
+            ctx.fillRect(22, 12, 6, 8);
+            ctx.fillStyle = '#6B4226';
+            ctx.fillRect(10, 18, 8, 6);
+            ctx.fillStyle = '#333';
+            ctx.fillRect(6, 18, 4, 8);
+            ctx.strokeStyle = '#ffcc00'; ctx.lineWidth = 1;
+            ctx.strokeRect(2, 11, 28, 16);
+        });
+
         // --- MG-Pickup-Sprite (32x32) ---
         this.mgSprite = this._createSpriteCanvas(32, 32, (ctx) => {
             ctx.fillStyle = '#444';
@@ -184,9 +203,64 @@ const Renderer = {
             ctx.fillRect(26, 12, 4, 8);
             ctx.fillStyle = '#6B4226';
             ctx.fillRect(12, 18, 10, 6);
-            // Gelber Rand als Highlight
             ctx.strokeStyle = '#ffcc00'; ctx.lineWidth = 1;
             ctx.strokeRect(1, 9, 30, 16);
+        });
+
+        // --- Sniper-Pickup-Sprite (32x32) ---
+        this.sniperSprite = this._createSpriteCanvas(32, 32, (ctx) => {
+            ctx.fillStyle = '#3a3a3a';
+            ctx.fillRect(2, 15, 28, 3);
+            ctx.fillStyle = '#555';
+            ctx.fillRect(24, 12, 6, 8);
+            ctx.fillStyle = '#222';
+            ctx.fillRect(6, 12, 3, 3); // Zielfernrohr
+            ctx.fillStyle = '#6B4226';
+            ctx.fillRect(14, 18, 8, 6);
+            ctx.strokeStyle = '#00ccff'; ctx.lineWidth = 1;
+            ctx.strokeRect(1, 10, 30, 16);
+        });
+
+        // --- Flammenwerfer-Pickup-Sprite (32x32) ---
+        this.flamethrowerSprite = this._createSpriteCanvas(32, 32, (ctx) => {
+            ctx.fillStyle = '#555';
+            ctx.fillRect(4, 14, 20, 5);
+            ctx.fillStyle = '#884400';
+            ctx.fillRect(20, 12, 8, 8);
+            ctx.fillStyle = '#ff6600';
+            ctx.fillRect(2, 12, 6, 4);
+            ctx.fillStyle = '#ffcc00';
+            ctx.fillRect(0, 13, 4, 2);
+            ctx.strokeStyle = '#ff6600'; ctx.lineWidth = 1;
+            ctx.strokeRect(1, 10, 30, 14);
+        });
+
+        // --- Raketenwerfer-Pickup-Sprite (32x32) ---
+        this.launcherSprite = this._createSpriteCanvas(32, 32, (ctx) => {
+            ctx.fillStyle = '#3a5a3a';
+            ctx.fillRect(2, 12, 28, 8);
+            ctx.fillStyle = '#2a4a2a';
+            ctx.fillRect(4, 10, 6, 12);
+            ctx.fillStyle = '#555';
+            ctx.fillRect(26, 13, 4, 6);
+            ctx.fillStyle = '#333';
+            ctx.beginPath(); ctx.arc(6, 16, 5, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = '#88ff88'; ctx.lineWidth = 1;
+            ctx.strokeRect(1, 9, 30, 14);
+        });
+
+        // --- Railgun-Pickup-Sprite (32x32) ---
+        this.railgunSprite = this._createSpriteCanvas(32, 32, (ctx) => {
+            ctx.fillStyle = '#2a2a5a';
+            ctx.fillRect(2, 14, 28, 4);
+            ctx.fillStyle = '#4444aa';
+            ctx.fillRect(6, 11, 20, 10);
+            ctx.fillStyle = '#6666ff';
+            ctx.fillRect(10, 13, 12, 6);
+            ctx.fillStyle = '#aaaaff';
+            ctx.fillRect(14, 15, 4, 2);
+            ctx.strokeStyle = '#6666ff'; ctx.lineWidth = 1;
+            ctx.strokeRect(1, 9, 30, 14);
         });
     },
 
@@ -269,9 +343,9 @@ const Renderer = {
 
         for (let y = 0; y < h; y++) {
             const isCeiling = y < halfH;
-            const r = isCeiling ? 80 : 50;
-            const g = isCeiling ? 80 : 50;
-            const b = isCeiling ? 90 : 50;
+            const r = isCeiling ? 80 : 30;
+            const g = isCeiling ? 80 : 60;
+            const b = isCeiling ? 90 : 30;
             const row = y * w * 4;
             for (let x = 0; x < w; x++) {
                 const i = row + x * 4;
@@ -354,7 +428,12 @@ const Renderer = {
             if (p.type === 'gold') spriteImg = this.goldSprite;
             if (p.type === 'gold_big') spriteImg = this.treasureSprite;
             if (p.type === 'weapon_shotgun') spriteImg = this.shotgunSprite;
+            if (p.type === 'weapon_smg') spriteImg = this.smgSprite;
             if (p.type === 'weapon_mg') spriteImg = this.mgSprite;
+            if (p.type === 'weapon_sniper') spriteImg = this.sniperSprite;
+            if (p.type === 'weapon_flamethrower') spriteImg = this.flamethrowerSprite;
+            if (p.type === 'weapon_launcher') spriteImg = this.launcherSprite;
+            if (p.type === 'weapon_railgun') spriteImg = this.railgunSprite;
 
             sprites.push({
                 x: p.x, y: p.y,
@@ -451,9 +530,14 @@ const Renderer = {
     _drawWeapon(ctx, player) {
         const weapon = player.currentWeapon || 'pistol';
         switch (weapon) {
-            case 'shotgun':    this._drawShotgun(ctx, player);    break;
-            case 'machinegun': this._drawMachineGun(ctx, player); break;
-            default:           this._drawPistol(ctx, player);     break;
+            case 'smg':          this._drawSMG(ctx, player);          break;
+            case 'shotgun':      this._drawShotgun(ctx, player);      break;
+            case 'machinegun':   this._drawMachineGun(ctx, player);   break;
+            case 'sniper':       this._drawSniper(ctx, player);       break;
+            case 'flamethrower': this._drawFlamethrower(ctx, player); break;
+            case 'launcher':     this._drawLauncher(ctx, player);     break;
+            case 'railgun':      this._drawRailgun(ctx, player);      break;
+            default:             this._drawPistol(ctx, player);       break;
         }
     },
 
@@ -589,5 +673,199 @@ const Renderer = {
         ctx.fillStyle = '#c4956a';
         ctx.fillRect(wx + 28, wy + 18, 26, 14);
         ctx.fillRect(wx + 10, wy + 0, 10, 10);
+    },
+
+    // --- SMG (kompakt, schnell) ---
+    _drawSMG(ctx, player) {
+        const cx = this.width / 2;
+        const baseY = this.height - 115;
+        const bobX = Math.sin(player.weaponBob * 1.3) * 6;
+        const bobY = Math.abs(Math.cos(player.weaponBob * 2.6)) * 5;
+        const kickY = player.weaponKick * 22;
+        const wx = cx + bobX - 30;
+        const wy = baseY + bobY + kickY;
+
+        if (player.muzzleFlash > 0) {
+            ctx.fillStyle = '#ffaa00';
+            ctx.beginPath(); ctx.arc(cx + bobX, wy - 20, 18, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#ffff44';
+            ctx.beginPath(); ctx.arc(cx + bobX, wy - 20, 9, 0, Math.PI * 2); ctx.fill();
+        }
+
+        ctx.fillStyle = '#2a2a2a';
+        ctx.fillRect(wx + 22, wy - 18, 16, 8);
+        ctx.fillStyle = '#3a3a3a';
+        ctx.fillRect(wx + 12, wy - 10, 36, 14);
+        ctx.fillStyle = '#505050';
+        ctx.fillRect(wx + 14, wy - 8, 32, 2);
+        ctx.fillStyle = '#2a2a2a';
+        ctx.fillRect(wx + 18, wy + 4, 8, 18);
+        ctx.fillStyle = '#4a3020';
+        ctx.fillRect(wx + 28, wy + 4, 16, 32);
+        ctx.fillStyle = '#3a2518';
+        for (let i = 0; i < 4; i++) ctx.fillRect(wx + 29, wy + 8 + i * 6, 14, 1);
+        ctx.fillStyle = '#c4956a';
+        ctx.fillRect(wx + 24, wy + 18, 24, 12);
+        ctx.fillRect(wx + 8, wy - 2, 10, 10);
+    },
+
+    // --- Scharfschuetze (lang, schlank, Zielfernrohr) ---
+    _drawSniper(ctx, player) {
+        const cx = this.width / 2;
+        const baseY = this.height - 130;
+        const bobX = Math.sin(player.weaponBob) * 4;
+        const bobY = Math.abs(Math.cos(player.weaponBob * 2)) * 3;
+        const kickY = player.weaponKick * 50;
+        const wx = cx + bobX - 38;
+        const wy = baseY + bobY + kickY;
+
+        if (player.muzzleFlash > 0) {
+            ctx.fillStyle = '#ffcc44';
+            ctx.beginPath(); ctx.arc(cx + bobX + 2, wy - 32, 20, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath(); ctx.arc(cx + bobX + 2, wy - 32, 8, 0, Math.PI * 2); ctx.fill();
+        }
+
+        ctx.fillStyle = '#2a2a2a';
+        ctx.fillRect(wx + 30, wy - 30, 12, 14);
+        ctx.fillStyle = '#444';
+        ctx.fillRect(wx + 28, wy - 22, 16, 4);
+        ctx.fillStyle = '#00aaff';
+        ctx.beginPath(); ctx.arc(wx + 26, wy - 20, 3, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#3a3a3a';
+        ctx.fillRect(wx + 18, wy - 16, 38, 14);
+        ctx.fillStyle = '#505050';
+        ctx.fillRect(wx + 20, wy - 14, 34, 2);
+        ctx.fillStyle = '#2a2a2a';
+        ctx.fillRect(wx + 24, wy - 2, 8, 14);
+        ctx.fillStyle = '#4a3020';
+        ctx.fillRect(wx + 34, wy - 2, 18, 38);
+        ctx.fillStyle = '#3a2518';
+        for (let i = 0; i < 5; i++) ctx.fillRect(wx + 35, wy + 2 + i * 6, 16, 1);
+        ctx.fillStyle = '#5a3828';
+        ctx.fillRect(wx + 30, wy + 24, 26, 20);
+        ctx.fillStyle = '#c4956a';
+        ctx.fillRect(wx + 30, wy + 16, 26, 14);
+        ctx.fillRect(wx + 14, wy - 6, 10, 10);
+    },
+
+    // --- Flammenwerfer (breiter Tank, Flamme vorn) ---
+    _drawFlamethrower(ctx, player) {
+        const cx = this.width / 2;
+        const baseY = this.height - 125;
+        const bobX = Math.sin(player.weaponBob) * 5;
+        const bobY = Math.abs(Math.cos(player.weaponBob * 2)) * 4;
+        const kickY = player.weaponKick * 10;
+        const wx = cx + bobX - 36;
+        const wy = baseY + bobY + kickY;
+
+        if (player.muzzleFlash > 0) {
+            ctx.fillStyle = '#ff4400';
+            ctx.beginPath(); ctx.arc(cx + bobX + 6, wy - 24, 22, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#ff8800';
+            ctx.beginPath(); ctx.arc(cx + bobX + 4, wy - 20, 16, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#ffcc00';
+            ctx.beginPath(); ctx.arc(cx + bobX + 2, wy - 16, 10, 0, Math.PI * 2); ctx.fill();
+        }
+
+        ctx.fillStyle = '#555';
+        ctx.fillRect(wx + 28, wy - 16, 16, 8);
+        ctx.fillStyle = '#333';
+        ctx.fillRect(wx + 26, wy - 14, 4, 6);
+        ctx.fillStyle = '#884400';
+        ctx.fillRect(wx + 10, wy - 8, 40, 18);
+        ctx.fillStyle = '#aa5500';
+        ctx.fillRect(wx + 12, wy - 6, 36, 4);
+        ctx.fillStyle = '#cc0000';
+        ctx.fillRect(wx + 44, wy - 4, 6, 6);
+        ctx.fillStyle = '#333';
+        ctx.fillRect(wx + 24, wy + 10, 6, 8);
+        ctx.fillStyle = '#4a3020';
+        ctx.fillRect(wx + 30, wy + 10, 16, 32);
+        ctx.fillStyle = '#c4956a';
+        ctx.fillRect(wx + 26, wy + 22, 24, 14);
+        ctx.fillRect(wx + 6, wy - 2, 10, 10);
+    },
+
+    // --- Raketenwerfer (grosses Rohr) ---
+    _drawLauncher(ctx, player) {
+        const cx = this.width / 2;
+        const baseY = this.height - 130;
+        const bobX = Math.sin(player.weaponBob) * 5;
+        const bobY = Math.abs(Math.cos(player.weaponBob * 2)) * 4;
+        const kickY = player.weaponKick * 55;
+        const wx = cx + bobX - 40;
+        const wy = baseY + bobY + kickY;
+
+        if (player.muzzleFlash > 0) {
+            ctx.fillStyle = '#ff6600';
+            ctx.beginPath(); ctx.arc(cx + bobX, wy - 28, 28, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#ffaa00';
+            ctx.beginPath(); ctx.arc(cx + bobX, wy - 28, 16, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#ffff44';
+            ctx.beginPath(); ctx.arc(cx + bobX, wy - 28, 8, 0, Math.PI * 2); ctx.fill();
+        }
+
+        ctx.fillStyle = '#3a5a3a';
+        ctx.fillRect(wx + 18, wy - 22, 44, 18);
+        ctx.fillStyle = '#2a4a2a';
+        ctx.fillRect(wx + 20, wy - 20, 40, 14);
+        ctx.fillStyle = '#222';
+        ctx.beginPath(); ctx.arc(wx + 40, wy - 13, 8, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#111';
+        ctx.beginPath(); ctx.arc(wx + 40, wy - 13, 5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#555';
+        ctx.fillRect(wx + 32, wy - 28, 4, 6);
+        ctx.fillStyle = '#4a3020';
+        ctx.fillRect(wx + 28, wy - 4, 20, 38);
+        ctx.fillStyle = '#3a2518';
+        for (let i = 0; i < 5; i++) ctx.fillRect(wx + 29, wy + 0 + i * 6, 18, 1);
+        ctx.fillStyle = '#5a3828';
+        ctx.fillRect(wx + 22, wy + 22, 28, 16);
+        ctx.fillStyle = '#c4956a';
+        ctx.fillRect(wx + 24, wy + 14, 28, 14);
+        ctx.fillRect(wx + 14, wy - 10, 10, 10);
+    },
+
+    // --- Railgun (futuristisch, blau leuchtend) ---
+    _drawRailgun(ctx, player) {
+        const cx = this.width / 2;
+        const baseY = this.height - 125;
+        const bobX = Math.sin(player.weaponBob) * 5;
+        const bobY = Math.abs(Math.cos(player.weaponBob * 2)) * 4;
+        const kickY = player.weaponKick * 45;
+        const wx = cx + bobX - 36;
+        const wy = baseY + bobY + kickY;
+
+        if (player.muzzleFlash > 0) {
+            ctx.fillStyle = '#4444ff';
+            ctx.beginPath(); ctx.arc(cx + bobX + 4, wy - 26, 24, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#8888ff';
+            ctx.beginPath(); ctx.arc(cx + bobX + 4, wy - 26, 14, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath(); ctx.arc(cx + bobX + 4, wy - 26, 6, 0, Math.PI * 2); ctx.fill();
+        }
+
+        ctx.fillStyle = '#2a2a5a';
+        ctx.fillRect(wx + 24, wy - 24, 8, 12);
+        ctx.fillRect(wx + 40, wy - 24, 8, 12);
+        ctx.fillStyle = '#3a3a6a';
+        ctx.fillRect(wx + 20, wy - 12, 34, 16);
+        const glow = 0.5 + Math.sin(Date.now() * 0.005) * 0.3;
+        ctx.fillStyle = `rgba(100, 100, 255, ${glow})`;
+        ctx.fillRect(wx + 28, wy - 8, 16, 8);
+        ctx.fillStyle = '#aaaaff';
+        ctx.fillRect(wx + 32, wy - 6, 8, 4);
+        ctx.fillStyle = '#4444aa';
+        ctx.fillRect(wx + 16, wy + 4, 40, 10);
+        ctx.fillStyle = '#5555cc';
+        ctx.fillRect(wx + 18, wy + 6, 36, 2);
+        ctx.fillStyle = '#333';
+        ctx.fillRect(wx + 30, wy + 14, 16, 30);
+        ctx.fillStyle = '#222';
+        for (let i = 0; i < 4; i++) ctx.fillRect(wx + 31, wy + 18 + i * 6, 14, 1);
+        ctx.fillStyle = '#c4956a';
+        ctx.fillRect(wx + 26, wy + 26, 24, 14);
+        ctx.fillRect(wx + 12, wy + 0, 10, 10);
     }
 };

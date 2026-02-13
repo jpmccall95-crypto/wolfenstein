@@ -10,7 +10,12 @@ class Enemy {
 
         // Status
         this.health = 50;
+        this.maxHealth = 50;
         this.alive = true;
+
+        // Burn-Effekt (Flammenwerfer)
+        this.burnTimer = 0;      // Verbleibende Burn-Dauer
+        this.burnTickTimer = 0;  // Timer bis naechster Burn-Tick
 
         // KI-Zustand: 'idle', 'chase', 'attack'
         this.state = 'idle';
@@ -167,9 +172,29 @@ class Pickup {
                 this.weaponType = 'shotgun';
                 this.weaponCost = 50;
                 break;
+            case 'weapon_smg':
+                this.weaponType = 'smg';
+                this.weaponCost = 75;
+                break;
             case 'weapon_mg':
                 this.weaponType = 'machinegun';
                 this.weaponCost = 100;
+                break;
+            case 'weapon_sniper':
+                this.weaponType = 'sniper';
+                this.weaponCost = 150;
+                break;
+            case 'weapon_flamethrower':
+                this.weaponType = 'flamethrower';
+                this.weaponCost = 200;
+                break;
+            case 'weapon_launcher':
+                this.weaponType = 'launcher';
+                this.weaponCost = 250;
+                break;
+            case 'weapon_railgun':
+                this.weaponType = 'railgun';
+                this.weaponCost = 350;
                 break;
         }
     }

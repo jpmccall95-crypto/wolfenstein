@@ -131,6 +131,14 @@ canvas {
     opacity: 0.6;
 }
 
+/* Singleplayer Modus-Beschreibung */
+.spModeDesc {
+    color: #888;
+    font-size: 14px;
+    margin-bottom: 15px;
+    min-height: 20px;
+}
+
 /* Lobby */
 .lobbyInfo {
     margin: 15px 0;
@@ -167,4 +175,59 @@ canvas {
     color: #ffcc00;
     font-size: 16px;
     animation: blink 1.2s infinite;
+}
+
+/* Pause-Menue */
+#pauseMenu {
+    position: absolute;
+    color: #fff;
+    text-align: center;
+    background: rgba(0, 0, 0, 0.85);
+    padding: 40px 60px;
+    border: 2px solid #cc0000;
+    z-index: 10;
+    user-select: none;
+}
+
+#pauseMenu h2 {
+    font-size: 36px;
+    color: #cc0000;
+    text-shadow: 2px 2px 0px #660000;
+    margin-bottom: 30px;
+    letter-spacing: 6px;
+}
+
+.pauseBtn {
+    display: block;
+    width: 100%;
+    background: #333;
+    color: #fff;
+    border: 2px solid #555;
+    padding: 12px 35px;
+    font-family: 'Courier New', monospace;
+    font-size: 16px;
+    cursor: pointer;
+    letter-spacing: 2px;
+    margin-bottom: 10px;
+    transition: all 0.15s;
+}
+
+.pauseBtn:hover {
+    background: #555;
+    border-color: #999;
+}
+
+.pauseBtn.leaveBtn {
+    background: #660000;
+    border-color: #cc0000;
+}
+
+.pauseBtn.leaveBtn:hover {
+    background: #cc0000;
+}
+
+.pauseHint {
+    color: #666;
+    font-size: 12px;
+    margin-top: 15px;
 }

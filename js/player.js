@@ -36,14 +36,19 @@ class Player {
         // Gold
         this.gold = 0;
 
-        // Waffen-System
+        // Waffen-System (8 Waffen)
         this.weapons = {
-            pistol:     { owned: true,  damage: 25, cooldown: 0.35, name: 'Pistole' },
-            shotgun:    { owned: false, damage: 60, cooldown: 0.8,  name: 'Schrotflinte' },
-            machinegun: { owned: false, damage: 15, cooldown: 0.1,  name: 'MG' }
+            pistol:       { owned: true,  damage: 25,  cooldown: 0.35, name: 'Pistole' },
+            smg:          { owned: false, damage: 20,  cooldown: 0.18, name: 'MP' },
+            shotgun:      { owned: false, damage: 60,  cooldown: 0.8,  name: 'Schrotflinte' },
+            machinegun:   { owned: false, damage: 15,  cooldown: 0.1,  name: 'MG' },
+            sniper:       { owned: false, damage: 120, cooldown: 1.2,  name: 'Scharfschuetze' },
+            flamethrower: { owned: false, damage: 8,   cooldown: 0.06, name: 'Flammenwerfer' },
+            launcher:     { owned: false, damage: 80,  cooldown: 1.5,  name: 'Raketenwerfer' },
+            railgun:      { owned: false, damage: 200, cooldown: 2.5,  name: 'Railgun' }
         };
         this.currentWeapon = 'pistol';
-        this.weaponList = ['pistol', 'shotgun', 'machinegun'];
+        this.weaponList = ['pistol', 'smg', 'shotgun', 'machinegun', 'sniper', 'flamethrower', 'launcher', 'railgun'];
 
         // Waffen-Status
         this.canShoot = true;
@@ -113,8 +118,8 @@ class Player {
             if (this.shootTimer <= 0) this.canShoot = true;
         }
 
-        // Maschinengewehr: Dauerfeuer (Taste gehalten = feuern)
-        const holdFire = this.currentWeapon === 'machinegun';
+        // Dauerfeuer-Waffen (Taste gehalten = feuern)
+        const holdFire = this.currentWeapon === 'machinegun' || this.currentWeapon === 'smg' || this.currentWeapon === 'flamethrower';
         const wantShoot = holdFire
             ? (Input.isKeyDown('Space') || Input.mouseDown)
             : Input.shootPressed;
@@ -123,10 +128,15 @@ class Player {
             this._shoot();
         }
 
-        // --- Waffenwechsel (1, 2, 3 Tasten) ---
+        // --- Waffenwechsel (1-8 Tasten) ---
         if (Input.isKeyDown('Digit1')) this._switchWeapon('pistol');
-        if (Input.isKeyDown('Digit2')) this._switchWeapon('shotgun');
-        if (Input.isKeyDown('Digit3')) this._switchWeapon('machinegun');
+        if (Input.isKeyDown('Digit2')) this._switchWeapon('smg');
+        if (Input.isKeyDown('Digit3')) this._switchWeapon('shotgun');
+        if (Input.isKeyDown('Digit4')) this._switchWeapon('machinegun');
+        if (Input.isKeyDown('Digit5')) this._switchWeapon('sniper');
+        if (Input.isKeyDown('Digit6')) this._switchWeapon('flamethrower');
+        if (Input.isKeyDown('Digit7')) this._switchWeapon('launcher');
+        if (Input.isKeyDown('Digit8')) this._switchWeapon('railgun');
 
         // --- Scrollrad-Waffenwechsel ---
         if (Input.scrollDelta !== 0) {
@@ -186,8 +196,18 @@ class Player {
         this.justShot = true;
         this.canShoot = false;
         this.shootTimer = wp.cooldown;
-        this.weaponKick = this.currentWeapon === 'shotgun' ? 1.5 : 1.0;
-        this.muzzleFlash = this.currentWeapon === 'machinegun' ? 0.04 : 0.08;
+
+        // Waffen-spezifischer Ruecklauf und Muendungsfeuer
+        switch (this.currentWeapon) {
+            case 'shotgun':      this.weaponKick = 1.5; this.muzzleFlash = 0.10; break;
+            case 'machinegun':   this.weaponKick = 0.6; this.muzzleFlash = 0.04; break;
+            case 'smg':          this.weaponKick = 0.7; this.muzzleFlash = 0.05; break;
+            case 'sniper':       this.weaponKick = 2.0; this.muzzleFlash = 0.12; break;
+            case 'flamethrower': this.weaponKick = 0.2; this.muzzleFlash = 0.06; break;
+            case 'launcher':     this.weaponKick = 2.5; this.muzzleFlash = 0.15; break;
+            case 'railgun':      this.weaponKick = 1.8; this.muzzleFlash = 0.20; break;
+            default:             this.weaponKick = 1.0; this.muzzleFlash = 0.08; break;
+        }
     }
 
     // Waffe wechseln (nur wenn man sie besitzt)

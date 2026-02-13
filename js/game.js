@@ -1,8 +1,19 @@
 // ============================================
 // game.js - Hauptspiellogik und Game Loop
-// Singleplayer, Deathmatch und Co-op Modus
-// Erweitert um Tueren, Waffen, Gold, Musik
+// Singleplayer, Solo-Wellenmodus, Deathmatch und Co-op
+// Erweitert um Tueren, 8 Waffen, Gold, Musik
 // ============================================
+
+// Solo-Waffen-Pickups auf der Karte (7 Waffen, Pistole ist gratis)
+const SOLO_WEAPON_SPAWNS = [
+    { x: 20.5, y: 10.5, type: 'weapon_smg' },           // Oberer Korridor (nah)
+    { x: 12.5, y: 9.5,  type: 'weapon_shotgun' },        // Oberer Korridor links
+    { x: 3.5,  y: 17.5, type: 'weapon_mg' },              // ML-Raum (MG)
+    { x: 36.5, y: 16.5, type: 'weapon_sniper' },         // MR-Raum
+    { x: 1.5,  y: 10.5, type: 'weapon_flamethrower' },   // Geheimraum links
+    { x: 38.5, y: 10.5, type: 'weapon_launcher' },       // Geheimraum rechts
+    { x: 20.5, y: 22.5, type: 'weapon_railgun' },        // Arena-Geheimraum (teuerste)
+];
 
 const Game = {
     canvas: null,
@@ -13,6 +24,16 @@ const Game = {
 
     // Modus
     isMultiplayer: false,
+    isSolo: false,
+
+    // Solo-Wellenmodus Zustand
+    soloWave: {
+        wave: 0,
+        countdown: 0,
+        betweenWaves: true,
+        active: false,
+        gameOver: false
+    },
 
     // Zeitmessung
     lastTime: 0,
@@ -42,61 +63,152 @@ const Game = {
         Network.init();
         this.isMultiplayer = Network.available;
 
-        if (this.isMultiplayer) {
-            this._setupMultiplayer();
-        } else {
-            this._setupSingleplayer();
-        }
+        // Einheitliche Modus-Auswahl (3 Modi)
+        this._setupModeSelection();
     },
 
     // ============================================
-    // Singleplayer Setup
+    // Einheitliche Modus-Auswahl (Solo / Co-op / Deathmatch)
     // ============================================
-    _setupSingleplayer() {
+    _setupModeSelection() {
         document.getElementById('spStart').style.display = 'block';
         document.getElementById('mpJoin').style.display = 'none';
 
-        const startScreen = document.getElementById('startScreen');
-        startScreen.style.cursor = 'pointer';
-        startScreen.addEventListener('click', () => {
-            this.canvas.requestPointerLock();
+        const modeSolo = document.getElementById('modeSolo');
+        const modeCoop = document.getElementById('modeCoopStart');
+        const modeDM = document.getElementById('modeDMStart');
+        const modeDesc = document.getElementById('spModeDesc');
+        const prompt = document.getElementById('startPrompt');
+
+        // Standard: Solo ausgewaehlt
+        this.isSolo = true;
+        this._selectedMPMode = null;
+
+        // Co-op und Deathmatch brauchen Server
+        if (!this.isMultiplayer) {
+            modeCoop.disabled = true;
+            modeDM.disabled = true;
+            modeCoop.style.opacity = '0.4';
+            modeDM.style.opacity = '0.4';
+            modeCoop.title = 'Server noetig - starte mit npm start';
+            modeDM.title = 'Server noetig - starte mit npm start';
+        }
+
+        // --- Solo Wellen ---
+        modeSolo.addEventListener('click', () => {
+            this.isSolo = true;
+            this._selectedMPMode = null;
+            modeSolo.classList.add('active');
+            modeCoop.classList.remove('active');
+            modeDM.classList.remove('active');
+            modeDesc.textContent = 'Ueberlebe Gegnerwellen die immer staerker werden! Kaufe Waffen mit Gold.';
+            prompt.textContent = 'Klicke um zu starten!';
+            prompt.style.display = '';
+            document.getElementById('mpJoin').style.display = 'none';
         });
 
+        // --- Co-op (nur mit Server) ---
+        if (this.isMultiplayer) {
+            modeCoop.addEventListener('click', () => {
+                this.isSolo = false;
+                this._selectedMPMode = 'coop';
+                modeSolo.classList.remove('active');
+                modeCoop.classList.add('active');
+                modeDM.classList.remove('active');
+                modeDesc.textContent = 'Spiele mit anderen zusammen gegen KI-Wellen.';
+                prompt.style.display = 'none';
+                document.getElementById('mpJoin').style.display = 'block';
+                document.getElementById('nameInput').focus();
+            });
+
+            // --- Deathmatch (nur mit Server) ---
+            modeDM.addEventListener('click', () => {
+                this.isSolo = false;
+                this._selectedMPMode = 'deathmatch';
+                modeSolo.classList.remove('active');
+                modeCoop.classList.remove('active');
+                modeDM.classList.add('active');
+                modeDesc.textContent = 'Jeder gegen jeden! Zeige wer der Beste ist.';
+                prompt.style.display = 'none';
+                document.getElementById('mpJoin').style.display = 'block';
+                document.getElementById('nameInput').focus();
+            });
+
+            // --- Beitreten (Name-Eingabe fuer Co-op/DM) ---
+            this._setupJoinButton();
+        }
+
+        // --- Klick auf Startscreen -> Spiel starten ---
+        const startScreen = document.getElementById('startScreen');
+        startScreen.style.cursor = 'pointer';
+        startScreen.addEventListener('click', (e) => {
+            // Nicht bei Klick auf Buttons oder Eingabefelder
+            if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT') return;
+
+            // Solo: Direkt starten
+            if (this.isSolo && !this.started) {
+                this.canvas.requestPointerLock();
+                return;
+            }
+
+            // MP: Nur starten wenn Spiel vom Host gestartet wurde
+            if (this.isMultiplayer && Network.gameStarted && !this.started) {
+                this.canvas.requestPointerLock();
+            }
+        });
+
+        // --- Pointer Lock Handler ---
         document.addEventListener('pointerlockchange', () => {
             Sound.unlock();
+
+            // Spiel starten
             if (Input.pointerLocked && !this.started) {
-                this._startGame();
+                if (this.isSolo) {
+                    this._startGame();
+                } else if (this.isMultiplayer && Network.gameStarted) {
+                    this._startGame();
+                }
             }
+
+            // Neustart nach Tod (nur Solo)
             if (Input.pointerLocked && this.started && this.player && !this.player.alive) {
-                this._restartSP();
+                if (this.isSolo) {
+                    this._restartSolo();
+                }
+            }
+
+            // Pause-Menue
+            if (!Input.pointerLocked && this.started && this.running) {
+                this._showPauseMenu();
+            } else {
+                this._hidePauseMenu();
             }
         });
 
         this.canvas.addEventListener('click', () => {
-            if (this.started && this.player && !this.player.alive) {
+            if (this.started && this.player && !this.player.alive && this.isSolo) {
                 this.canvas.requestPointerLock();
             }
         });
+
+        this._setupPauseMenu();
     },
 
-    // ============================================
-    // Multiplayer Setup (Lobby-System)
-    // ============================================
-    _setupMultiplayer() {
-        document.getElementById('spStart').style.display = 'none';
-        document.getElementById('mpJoin').style.display = 'block';
-
+    // Beitreten-Button fuer Multiplayer-Modi
+    _setupJoinButton() {
         const joinBtn = document.getElementById('joinBtn');
         const nameInput = document.getElementById('nameInput');
-        nameInput.focus();
 
-        // --- Beitreten ---
         const doJoin = () => {
             const name = nameInput.value.trim() || 'Spieler';
             joinBtn.disabled = true;
             joinBtn.textContent = 'Verbinde...';
 
             Network.connect(name, () => {
+                // Modus an Server senden (falls Host)
+                if (this._selectedMPMode && Network.isHost()) {
+                    Network.selectMode(this._selectedMPMode);
+                }
                 this._showLobby();
             });
 
@@ -106,23 +218,6 @@ const Game = {
         joinBtn.addEventListener('click', doJoin);
         nameInput.addEventListener('keydown', (e) => {
             if (e.code === 'Enter') doJoin();
-        });
-
-        // --- Klick auf Startscreen -> Pointer Lock anfordern ---
-        const startScreen = document.getElementById('startScreen');
-        startScreen.style.cursor = 'pointer';
-        startScreen.addEventListener('click', () => {
-            if (Network.gameStarted && !this.started) {
-                this.canvas.requestPointerLock();
-            }
-        });
-
-        // --- Pointer Lock -> Spiel starten ---
-        document.addEventListener('pointerlockchange', () => {
-            Sound.unlock();
-            if (Input.pointerLocked && !this.started && Network.gameStarted) {
-                this._startGame();
-            }
         });
     },
 
@@ -187,9 +282,15 @@ const Game = {
         // Spiel startet (vom Host ausgeloest)
         Network.onGameStart = (data) => {
             document.getElementById('mpLobby').style.display = 'none';
+            document.getElementById('mpJoin').style.display = 'none';
+            document.getElementById('spModeSelect').style.display = 'none';
+            document.getElementById('spModeDesc').style.display = 'none';
             document.getElementById('spStart').style.display = 'block';
-            const prompt = document.querySelector('#spStart .prompt');
-            if (prompt) prompt.textContent = 'Klicke um zu spielen!';
+            const prompt = document.getElementById('startPrompt');
+            if (prompt) {
+                prompt.style.display = '';
+                prompt.textContent = 'Klicke um zu spielen!';
+            }
         };
 
         // Zurueck in die Lobby (nach Co-op Game Over)
@@ -208,6 +309,7 @@ const Game = {
     _showLobby() {
         const startScreen = document.getElementById('startScreen');
         startScreen.style.display = '';
+        document.getElementById('spStart').style.display = 'none';
         document.getElementById('mpJoin').style.display = 'none';
         document.getElementById('mpLobby').style.display = 'block';
 
@@ -296,36 +398,43 @@ const Game = {
             : PLAYER_START;
         this.player = new Player(spawn.x, spawn.y, spawn.angle || 0);
 
-        // Gegner nur im Singleplayer
-        if (!this.isMultiplayer) {
-            this.enemies = ENEMY_SPAWNS.map(s => new Enemy(s.x, s.y));
-        } else {
-            this.enemies = [];
-        }
-
-        // Pickups erstellen (Schaetze + Waffen)
+        // Pickups erstellen
         this.pickups = [];
 
-        // Schaetze aus der Karte
-        if (typeof TREASURE_SPAWNS !== 'undefined') {
-            for (const ts of TREASURE_SPAWNS) {
-                this.pickups.push(new Pickup(ts.x, ts.y, ts.type));
-            }
-        }
+        if (!this.isMultiplayer) {
+            // Solo-Wellenmodus: Keine festen Gegner, Wellen spawnen sie
+            this.enemies = [];
+            this.isSolo = true;
+            this.soloWave = {
+                wave: 0,
+                countdown: 5, // 5s Countdown vor Welle 1
+                betweenWaves: true,
+                active: true,
+                gameOver: false
+            };
 
-        // Waffen aus der Karte
-        if (typeof WEAPON_SPAWNS !== 'undefined') {
-            for (const ws of WEAPON_SPAWNS) {
+            // Schaetze aus der Karte
+            if (typeof TREASURE_SPAWNS !== 'undefined') {
+                for (const ts of TREASURE_SPAWNS) {
+                    this.pickups.push(new Pickup(ts.x, ts.y, ts.type));
+                }
+            }
+
+            // Solo-Waffen-Pickups (alle 7 kaufbaren Waffen)
+            for (const ws of SOLO_WEAPON_SPAWNS) {
                 this.pickups.push(new Pickup(ws.x, ws.y, ws.type));
             }
+        } else {
+            // Multiplayer (Co-op / Deathmatch)
+            this.enemies = [];
         }
 
         // Tueren zuruecksetzen
         Doors.init();
     },
 
-    // SP Neustart
-    _restartSP() {
+    // Solo Neustart
+    _restartSolo() {
         this._setupLevel();
         this.running = true;
         Sound.stopMusic();
@@ -366,29 +475,9 @@ const Game = {
         if (this.isMultiplayer) {
             this._updateMP(dt);
         } else {
-            this._updateSP(dt);
+            // Solo-Wellenmodus (einziger Offline-Modus)
+            this._updateSolo(dt);
         }
-    },
-
-    // --- Singleplayer Update ---
-    _updateSP(dt) {
-        this.player.update(dt);
-
-        // Schritte abspielen
-        if (this.player.isMoving) {
-            Sound.playStep();
-        }
-
-        for (const enemy of this.enemies) {
-            enemy.update(dt, this.player);
-        }
-
-        if (this.player.justShot) {
-            Sound.playShoot();
-            this._handleSPShot();
-        }
-
-        this._checkPickups();
     },
 
     // --- Multiplayer Update ---
@@ -425,10 +514,150 @@ const Game = {
         this._checkPickups();
     },
 
-    // SP: Schuss auswerten
-    _handleSPShot() {
+    // ============================================
+    // Solo-Wellenmodus Update
+    // ============================================
+    _updateSolo(dt) {
+        if (this.soloWave.gameOver) return;
+
+        this.player.update(dt);
+
+        // Schritte abspielen
+        if (this.player.isMoving) {
+            Sound.playStep();
+        }
+
+        // Spieler tot -> Game Over
+        if (!this.player.alive) {
+            this.soloWave.gameOver = true;
+            return;
+        }
+
+        // Countdown zwischen Wellen
+        if (this.soloWave.betweenWaves) {
+            this.soloWave.countdown -= dt;
+            if (this.soloWave.countdown <= 0) {
+                this.soloWave.betweenWaves = false;
+                this._startNextSoloWave();
+            }
+        } else {
+            // Gegner updaten
+            for (const enemy of this.enemies) {
+                if (!enemy.alive) continue;
+                enemy.update(dt, this.player);
+
+                // Burn-Effekt (Flammenwerfer DoT)
+                if (enemy.burnTimer > 0) {
+                    enemy.burnTimer -= dt;
+                    enemy.burnTickTimer -= dt;
+                    if (enemy.burnTickTimer <= 0) {
+                        enemy.burnTickTimer = 0.3; // Alle 0.3s Schaden
+                        enemy.takeDamage(5);       // 5 Schaden pro Tick
+                        if (!enemy.alive) {
+                            this._soloEnemyDied(enemy);
+                        }
+                    }
+                }
+            }
+
+            // Alle Gegner tot? -> Naechste Welle
+            const aliveCount = this.enemies.filter(e => e.alive).length;
+            if (aliveCount === 0) {
+                this.soloWave.betweenWaves = true;
+                this.soloWave.countdown = 10; // 10s Pause
+                Sound.playWaveStart();
+            }
+        }
+
+        // Schuss
+        if (this.player.justShot) {
+            Sound.playShoot();
+            this._handleSoloShot();
+        }
+
+        this._checkPickups();
+    },
+
+    // Naechste Solo-Welle spawnen (Formeln wie Co-op)
+    _startNextSoloWave() {
+        this.soloWave.wave++;
+        const N = this.soloWave.wave;
+        const isBossWave = N % 5 === 0;
+
+        // Gegner-Anzahl: 5 + (N-1)*3
+        const enemyCount = 5 + (N - 1) * 3;
+        const hp = Math.min(200, 50 + (N - 1) * 10);
+        const speed = Math.min(3.5, 1.5 + (N - 1) * 0.15);
+
+        this.enemies = [];
+
+        // Normale Gegner spawnen
+        const normalCount = isBossWave ? enemyCount - 1 : enemyCount;
+        for (let i = 0; i < normalCount; i++) {
+            const spawn = ENEMY_SPAWNS[i % ENEMY_SPAWNS.length];
+            // Leichte Zufalls-Verschiebung damit sie nicht uebereinander stehen
+            const offsetX = (Math.random() - 0.5) * 1.0;
+            const offsetY = (Math.random() - 0.5) * 1.0;
+            const enemy = new Enemy(spawn.x + offsetX, spawn.y + offsetY);
+            enemy.health = hp;
+            enemy.maxHealth = hp;
+            enemy.moveSpeed = speed;
+            this.enemies.push(enemy);
+        }
+
+        // Boss spawnen bei jeder 5. Welle
+        if (isBossWave) {
+            const bossSpawn = ENEMY_SPAWNS[Math.floor(Math.random() * ENEMY_SPAWNS.length)];
+            const boss = new Enemy(bossSpawn.x, bossSpawn.y);
+            boss.health = 300 + N * 40;
+            boss.maxHealth = boss.health;
+            boss.damage = Math.min(35, 15 + N);
+            boss.attackCooldown = 1.05; // 70% vom normalen
+            boss.radius = 0.45;
+            boss.moveSpeed = speed * 0.7;
+            boss.boss = true;
+            this.enemies.push(boss);
+        }
+
+        // Health-Pickups (1 pro 3 Gegner)
+        const healthCount = Math.floor(enemyCount / 3);
+        for (let i = 0; i < healthCount; i++) {
+            const spawn = SPAWN_POINTS[i % SPAWN_POINTS.length];
+            this.pickups.push(new Pickup(
+                spawn.x + (Math.random() - 0.5) * 2,
+                spawn.y + (Math.random() - 0.5) * 2,
+                'health'
+            ));
+        }
+
+        Sound.playWaveStart();
+    },
+
+    // Solo: Schuss auswerten (mit Spezial-Mechaniken fuer neue Waffen)
+    _handleSoloShot() {
         const p = this.player;
-        const weaponDmg = p.weapons[p.currentWeapon].damage;
+        const weapon = p.currentWeapon;
+        const weaponDmg = p.weapons[weapon].damage;
+
+        // Flammenwerfer: Kegel-Angriff, kurze Reichweite
+        if (weapon === 'flamethrower') {
+            this._handleFlamethrowerShot(p, weaponDmg);
+            return;
+        }
+
+        // Railgun: Durchdringend - trifft ALLE Gegner in der Linie
+        if (weapon === 'railgun') {
+            this._handleRailgunShot(p, weaponDmg);
+            return;
+        }
+
+        // Raketenwerfer: Trifft naechsten Gegner + Splash-Schaden
+        if (weapon === 'launcher') {
+            this._handleLauncherShot(p, weaponDmg);
+            return;
+        }
+
+        // Standard-Logik (Pistole, SMG, Shotgun, MG, Sniper)
         let closestEnemy = null;
         let closestDist = Infinity;
 
@@ -443,7 +672,7 @@ const Game = {
             while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
 
             // Schrotflinte: breiterer Trefferwinkel
-            const extraAngle = p.currentWeapon === 'shotgun' ? 0.08 : 0;
+            const extraAngle = weapon === 'shotgun' ? 0.08 : 0;
             const hitAngle = Math.atan2(enemy.radius, dist) + extraAngle;
 
             if (Math.abs(angleDiff) < hitAngle + 0.03) {
@@ -465,21 +694,199 @@ const Game = {
                 '#ff4444'
             );
             if (!closestEnemy.alive) {
-                // Health-Pickup
-                this.pickups.push(new Pickup(closestEnemy.x, closestEnemy.y, 'health'));
-                // 40% Chance auf Gold-Drop
-                if (Math.random() < 0.4) {
-                    this.pickups.push(new Pickup(
-                        closestEnemy.x + (Math.random() - 0.5) * 0.3,
-                        closestEnemy.y + (Math.random() - 0.5) * 0.3,
-                        'gold'
-                    ));
-                }
+                this._soloEnemyDied(closestEnemy);
             }
         }
     },
 
-    // SP: Pickup-Kollision (alle Typen)
+    // Flammenwerfer: Kegel-Angriff, kurze Reichweite (6), setzt Burn-Timer
+    _handleFlamethrowerShot(p, weaponDmg) {
+        const maxRange = 6;
+        let hitAny = false;
+
+        for (const enemy of this.enemies) {
+            if (!enemy.alive) continue;
+            const dx = enemy.x - p.x;
+            const dy = enemy.y - p.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist > maxRange) continue;
+
+            const enemyAngle = Math.atan2(dy, dx);
+            let angleDiff = enemyAngle - p.angle;
+            while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+            while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+
+            // Breiterer Kegel (0.2 Radians ~11 Grad)
+            if (Math.abs(angleDiff) < 0.2) {
+                if (hasLineOfSight(p.x, p.y, enemy.x, enemy.y)) {
+                    enemy.takeDamage(weaponDmg);
+                    // Burn-Effekt setzen (3 Sekunden)
+                    enemy.burnTimer = 3.0;
+                    enemy.burnTickTimer = 0.3;
+                    hitAny = true;
+                    if (!enemy.alive) {
+                        this._soloEnemyDied(enemy);
+                    }
+                }
+            }
+        }
+
+        if (hitAny) {
+            Sound.playHit();
+            Particles.spawnHit(
+                Engine.screenWidth / 2,
+                Engine.screenHeight / 2,
+                '#ff6600'
+            );
+        }
+    },
+
+    // Railgun: Durchdringend - trifft ALLE Gegner in der Linie
+    _handleRailgunShot(p, weaponDmg) {
+        let hitAny = false;
+
+        // Alle Gegner in der Schusslinie treffen (sortiert nach Entfernung)
+        const targets = [];
+        for (const enemy of this.enemies) {
+            if (!enemy.alive) continue;
+            const dx = enemy.x - p.x;
+            const dy = enemy.y - p.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const enemyAngle = Math.atan2(dy, dx);
+            let angleDiff = enemyAngle - p.angle;
+            while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+            while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+
+            const hitAngle = Math.atan2(enemy.radius, dist);
+            if (Math.abs(angleDiff) < hitAngle + 0.03) {
+                targets.push({ enemy, dist });
+            }
+        }
+
+        // Nach Entfernung sortieren und alle treffen (Railgun durchdringt!)
+        targets.sort((a, b) => a.dist - b.dist);
+        for (const t of targets) {
+            // Sichtlinie nur zum ersten pruefen, danach durchdringt der Strahl
+            if (targets.indexOf(t) === 0) {
+                if (!hasLineOfSight(p.x, p.y, t.enemy.x, t.enemy.y)) continue;
+            }
+            t.enemy.takeDamage(weaponDmg);
+            hitAny = true;
+            if (!t.enemy.alive) {
+                this._soloEnemyDied(t.enemy);
+            }
+        }
+
+        if (hitAny) {
+            Sound.playHit();
+            Particles.spawnHit(
+                Engine.screenWidth / 2,
+                Engine.screenHeight / 2,
+                '#4444ff'
+            );
+        }
+    },
+
+    // Raketenwerfer: Splash-Schaden im Radius 1.5
+    _handleLauncherShot(p, weaponDmg) {
+        // Erst naechsten Gegner in der Linie finden (wie Standard)
+        let closestEnemy = null;
+        let closestDist = Infinity;
+
+        for (const enemy of this.enemies) {
+            if (!enemy.alive) continue;
+            const dx = enemy.x - p.x;
+            const dy = enemy.y - p.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const enemyAngle = Math.atan2(dy, dx);
+            let angleDiff = enemyAngle - p.angle;
+            while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+            while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+
+            const hitAngle = Math.atan2(enemy.radius, dist);
+            if (Math.abs(angleDiff) < hitAngle + 0.03) {
+                if (hasLineOfSight(p.x, p.y, enemy.x, enemy.y)) {
+                    if (dist < closestDist) {
+                        closestDist = dist;
+                        closestEnemy = enemy;
+                    }
+                }
+            }
+        }
+
+        if (closestEnemy) {
+            const impactX = closestEnemy.x;
+            const impactY = closestEnemy.y;
+            const splashRadius = 1.5;
+
+            // Splash-Schaden an allen Gegnern im Radius
+            for (const enemy of this.enemies) {
+                if (!enemy.alive) continue;
+                const dx = enemy.x - impactX;
+                const dy = enemy.y - impactY;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist < splashRadius) {
+                    // Schaden nimmt mit Entfernung ab
+                    const falloff = 1.0 - (dist / splashRadius);
+                    const dmg = Math.floor(weaponDmg * falloff);
+                    if (dmg > 0) {
+                        enemy.takeDamage(dmg);
+                        if (!enemy.alive) {
+                            this._soloEnemyDied(enemy);
+                        }
+                    }
+                }
+            }
+
+            // Selbstschaden wenn zu nah
+            const selfDist = Math.sqrt(
+                (p.x - impactX) * (p.x - impactX) +
+                (p.y - impactY) * (p.y - impactY)
+            );
+            if (selfDist < splashRadius) {
+                const selfFalloff = 1.0 - (selfDist / splashRadius);
+                const selfDmg = Math.floor(weaponDmg * 0.5 * selfFalloff);
+                if (selfDmg > 0) {
+                    p.takeDamage(selfDmg);
+                }
+            }
+
+            Sound.playHit();
+            Particles.spawnHit(
+                Engine.screenWidth / 2,
+                Engine.screenHeight / 2,
+                '#ff8800'
+            );
+        }
+    },
+
+    // Solo: Gegner gestorben -> Drops
+    _soloEnemyDied(enemy) {
+        if (enemy.boss) {
+            // Boss droppt immer grossen Goldschatz
+            this.pickups.push(new Pickup(
+                enemy.x + (Math.random() - 0.5) * 0.3,
+                enemy.y + (Math.random() - 0.5) * 0.3,
+                'gold_big'
+            ));
+        } else {
+            // 40% Chance auf Gold-Drop
+            if (Math.random() < 0.4) {
+                this.pickups.push(new Pickup(
+                    enemy.x + (Math.random() - 0.5) * 0.3,
+                    enemy.y + (Math.random() - 0.5) * 0.3,
+                    'gold'
+                ));
+            }
+        }
+
+        // Health-Drop (30% Chance)
+        if (Math.random() < 0.3) {
+            this.pickups.push(new Pickup(enemy.x, enemy.y, 'health'));
+        }
+    },
+
+    // Pickup-Kollision (alle Typen, generalisiert fuer alle weapon_* Pickups)
     _checkPickups() {
         const p = this.player;
         for (const pickup of this.pickups) {
@@ -487,32 +894,28 @@ const Game = {
             const dx = pickup.x - p.x, dy = pickup.y - p.y;
             const dist = Math.sqrt(dx * dx + dy * dy);
             if (dist < p.radius + pickup.radius) {
-                switch (pickup.type) {
-                    case 'health':
-                        if (p.health < p.maxHealth) {
-                            p.heal(pickup.healAmount);
-                            pickup.active = false;
-                            Sound.playPickup();
-                        }
-                        break;
-                    case 'gold':
-                    case 'gold_big':
-                        p.gold += pickup.goldValue;
+                if (pickup.type === 'health') {
+                    if (p.health < p.maxHealth) {
+                        p.heal(pickup.healAmount);
                         pickup.active = false;
-                        Sound.playGoldPickup();
-                        break;
-                    case 'weapon_shotgun':
-                    case 'weapon_mg':
-                        if (!p.weapons[pickup.weaponType].owned) {
-                            if (p.gold >= pickup.weaponCost) {
-                                p.gold -= pickup.weaponCost;
-                                p.weapons[pickup.weaponType].owned = true;
-                                p.currentWeapon = pickup.weaponType;
-                                pickup.active = false;
-                                Sound.playWeaponPickup();
-                            }
+                        Sound.playPickup();
+                    }
+                } else if (pickup.type === 'gold' || pickup.type === 'gold_big') {
+                    p.gold += pickup.goldValue;
+                    pickup.active = false;
+                    Sound.playGoldPickup();
+                } else if (pickup.weaponType) {
+                    // Generisch fuer alle Waffen-Pickups
+                    const wp = p.weapons[pickup.weaponType];
+                    if (wp && !wp.owned) {
+                        if (p.gold >= pickup.weaponCost) {
+                            p.gold -= pickup.weaponCost;
+                            wp.owned = true;
+                            p.currentWeapon = pickup.weaponType;
+                            pickup.active = false;
+                            Sound.playWeaponPickup();
                         }
-                        break;
+                    }
                 }
             }
         }
@@ -550,10 +953,67 @@ const Game = {
 
             Particles.draw(this.ctx);
         } else {
+            // Solo-Wellenmodus (einziger Offline-Modus)
             Renderer.renderFrame(this.player, this.enemies, this.pickups, []);
-            HUD.draw(this.ctx, this.player, this.enemies, this.currentFps, null, this.pickups);
+            HUD.draw(this.ctx, this.player, this.enemies, this.currentFps, null, this.pickups, this.soloWave);
             Particles.draw(this.ctx);
         }
+    },
+
+    // ============================================
+    // Pause-Menue
+    // ============================================
+    _setupPauseMenu() {
+        const resumeBtn = document.getElementById('resumeBtn');
+        const leaveBtn = document.getElementById('leaveBtn');
+
+        resumeBtn.addEventListener('click', () => {
+            this.canvas.requestPointerLock();
+        });
+
+        leaveBtn.addEventListener('click', () => {
+            this._leaveGame();
+        });
+    },
+
+    _showPauseMenu() {
+        document.getElementById('pauseMenu').style.display = '';
+    },
+
+    _hidePauseMenu() {
+        document.getElementById('pauseMenu').style.display = 'none';
+    },
+
+    // Spiel verlassen und zurueck zum Startbildschirm
+    _leaveGame() {
+        this._hidePauseMenu();
+        this.started = false;
+        this.running = false;
+        Sound.stopMusic();
+
+        // Im Multiplayer: Verbindung trennen und Seite neu laden
+        // (sauberste Loesung, da viele Event-Listener registriert sind)
+        if (this.isMultiplayer && Network.connected) {
+            Network.socket.disconnect();
+            location.reload();
+            return;
+        }
+
+        // Zurueck zum Startbildschirm mit Modus-Auswahl
+        document.getElementById('startScreen').style.display = '';
+        document.getElementById('spStart').style.display = 'block';
+        document.getElementById('spModeSelect').style.display = '';
+        document.getElementById('spModeDesc').style.display = '';
+        document.getElementById('mpJoin').style.display = 'none';
+        document.getElementById('mpLobby').style.display = 'none';
+        const prompt = document.getElementById('startPrompt');
+        if (prompt) {
+            prompt.style.display = '';
+            prompt.textContent = 'Klicke um zu starten!';
+        }
+        this.enemies = [];
+        this.pickups = [];
+        this.player = null;
     }
 };
 

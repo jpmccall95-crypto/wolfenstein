@@ -1,17 +1,24 @@
 # Wolfenstein 3D - Browser Klon
 
+## WICHTIG: Automatische Dokumentation
+- Nach JEDER Aenderung am Code diese CLAUDE.md Datei aktualisieren
+- Neue Features, Bugfixes, Architektur-Aenderungen, Commits etc. sofort hier dokumentieren
+- Damit ist der Arbeitsstand immer aktuell, auch wenn eine neue Sitzung gestartet wird
+
 ## Hinweise zum User
 - Hat noch nicht viel Erfahrung mit Code, Coding, Deployment, Hosting etc.
 - Erklaerungen einfach und verstaendlich halten, Fachbegriffe kurz erlaeutern
 - Bei Entscheidungen klare Empfehlungen geben statt nur Optionen aufzulisten
 
-## Projektstatus: Phase 4 abgeschlossen + Boss-Feature
+## Projektstatus: Phase 4 + Boss + Solo-Wellenmodus + 8 Waffen
 
-### Git-Status
-- **Letzter Commit:** `5589541` (.gitignore hinzufuegen)
-- **Committet:** Phase 1 (SP), Phase 2 (MP), .gitignore
-- **Noch NICHT committet:** Phase 3 (Co-op, Sounds, Deployment), Phase 4 (Tueren, Waffen, Gold, Musik), Boss-Feature
-- Alle uncommitteten Aenderungen sind getestet und funktionsfaehig
+### Git & Hosting Status
+- **GitHub Repo:** https://github.com/jpmccall95-crypto/wolfenstein
+- **Letzter Commit:** `8219df2` (Netzwerk-Optimierung fuer externen Server)
+- **Alles committet und auf GitHub gepusht**
+- **Hosting:** Railway (live)
+  - **URL: https://wolfenstein.up.railway.app**
+  - Railway verbunden mit GitHub-Repo, automatisches Deployment bei Push
 
 ### Abgeschlossene Phasen
 
@@ -35,7 +42,7 @@
 - Singleplayer funktioniert weiterhin (index.html direkt oeffnen)
 - Netzwerk-IP wird beim Serverstart angezeigt
 
-**Phase 3 - Co-op + Polish + Deployment** (noch nicht committet)
+**Phase 3 - Co-op + Polish + Deployment** (committet)
 - Co-op Modus: Alle Spieler vs. KI-Wellen
   - Welle N: 5 + (N-1)*3 Gegner
   - HP: min(200, 50 + (N-1)*10), Speed: min(3.5, 1.5 + (N-1)*0.15)
@@ -53,7 +60,7 @@
 - Gerundete Koordinaten (2 Dezimalstellen)
 - Deployment: Dockerfile, docker-compose.yml, railway.json, ngrok-Script
 
-**Phase 4 - Tueren, Waffen, Gold & Musik** (noch nicht committet)
+**Phase 4 - Tueren, Waffen, Gold & Musik** (committet)
 - Tuersystem: Normale Tueren (Typ 5) und Geheimtueren (Typ 6)
   - E-Taste zum Oeffnen, automatisches Schliessen nach 5s
   - Geheimtueren sehen aus wie normale Waende (getDisguiseTexture)
@@ -78,7 +85,7 @@
 - Neue Sounds: Tuer-Oeffnung, Gold-Pickup, Waffen-Pickup, Waffen-Wechsel
 - Neue Datei: js/doors.js (Tuer-Verwaltung, Client+Server kompatibel)
 
-**Boss-Feature** (noch nicht committet)
+**Boss-Feature** (committet)
 - Jede 5. Welle im Co-op ist eine Boss-Welle (Welle 5, 10, 15, ...)
 - Boss-Stats: HP = 300 + Welle*40 (z.B. 500 bei Welle 5, 700 bei Welle 10)
   - Schaden: min(35, 15 + Welle), schnellerer Angriff (70% Cooldown)
@@ -92,9 +99,44 @@
 - Boss droppt immer grossen Goldschatz (gold_big) statt normalem Gold
 - Boss-Angreifer heisst "BOSS" im Treffer-Event
 
+**Netzwerk-Optimierung fuer externen Server** (committet)
+- Delta-Compression fuer Co-op Gegner (nur geaenderte Daten senden)
+- Delta-Compression fuer Tueren (nur bei Aenderung senden)
+- Zeitbasierte Interpolation mit Smooth-Step fuer Gegner-Bewegung
+- Sanftere Server-Korrektur (Snap-Schwelle 0.5 -> 1.0, Lerp 0.2 -> 0.15)
+- Sanfterer Lerp-Faktor fuer Remote-Spieler (dt*15 -> dt*10)
+
+**Solo-Wellenmodus + 8 Waffen** (noch nicht committet)
+- Alter Singleplayer-Modus entfernt, ersetzt durch 3 Modi: SOLO WELLEN, CO-OP, DEATHMATCH
+- Solo-Wellenmodus: Allein gegen Gegnerwellen, komplett offline (client-seitig)
+  - Einheitliche Modus-Auswahl im Startscreen mit 3 Buttons
+  - Offline: Nur Solo verfuegbar, Co-op/DM ausgegraut (Server noetig)
+  - Online: Alle 3 Modi verfuegbar, Co-op/DM zeigen Name-Eingabe und Lobby
+  - Wellenformeln identisch zu Co-op: 5+(N-1)*3 Gegner, HP/Speed skaliert
+  - Boss alle 5 Wellen (HP=300+N*40, eigener Damage/Radius)
+  - 10s Pause zwischen Wellen, 5s Countdown vor Welle 1
+  - Health-Pickups pro Welle (1 pro 3 Gegner)
+  - Game Over wenn Spieler stirbt, Klick zum Neustart
+  - Burn-Effekt fuer Flammenwerfer (DoT: 5 Schaden alle 0.3s, 3s Dauer)
+- 8 Waffen insgesamt (5 neue):
+  - Pistole (25 Dmg, 0.35s, gratis)
+  - MP/SMG (20 Dmg, 0.18s, 75 Gold, Dauerfeuer)
+  - Schrotflinte (60 Dmg, 0.8s, 50 Gold, breiter Winkel)
+  - MG (15 Dmg, 0.1s, 100 Gold, schnellstes Dauerfeuer)
+  - Scharfschuetze (120 Dmg, 1.2s, 150 Gold)
+  - Flammenwerfer (8 Dmg, 0.06s, 200 Gold, Kegel, Reichweite 6, Burn-DoT)
+  - Raketenwerfer (80 Dmg, 1.5s, 250 Gold, Splash Radius 1.5, Selbstschaden)
+  - Railgun (200 Dmg, 2.5s, 350 Gold, durchdringend: trifft alle in der Linie)
+- Tasten 1-8 + Scrollrad fuer Waffenwechsel
+- 7 Waffen-Pickups auf der Solo-Map verteilt (SOLO_WEAPON_SPAWNS in game.js)
+- HUD: Horizontale Waffen-Leiste mit 8 Slots am unteren Rand
+- Generalisierte Pickup-Logik (alle weapon_* Typen)
+- 5 neue Pickup-Sprites (prozedural, 32x32)
+- 5 neue Waffen-Grafiken (prozedural gezeichnet im Renderer)
+- Alle Dateien geaendert: index.html, styles.css, player.js, enemy.js, game.js, hud.js, renderer.js
+
 ### Bekannte Probleme / TODOs
 - Kein Friendly-Fire Check im Co-op (Spieler koennen sich nicht gegenseitig treffen - ist OK da checkShotPlayers nur im DM verwendet wird)
-- ngrok-Link aendert sich bei jedem Neustart (kostenlose Version)
 - Keine Persistenz (Scores gehen bei Serverneustart verloren)
 - Browser Pointer Lock erfordert User-Klick (geloest durch "Klicke um zu spielen" Screen)
 
@@ -170,32 +212,38 @@ WAVE_PAUSE = 10s
 Boss: HP = 300+wave*40, Damage = min(35, 15+wave), Radius = 0.45, Cooldown = 1.05s
 ```
 
-### Waffen-Definition (server.js Spieler-Objekt)
+### Waffen-Definition (player.js / server.js)
 ```javascript
+// Client (player.js) - 8 Waffen
 weapons: {
-    pistol:   { owned: true,  damage: 25, cooldown: 0.35 },
-    shotgun:  { owned: false, damage: 60, cooldown: 0.8  },
-    mg:       { owned: false, damage: 15, cooldown: 0.1  }
+    pistol:       { owned: true,  damage: 25,  cooldown: 0.35, name: 'Pistole' },
+    smg:          { owned: false, damage: 20,  cooldown: 0.18, name: 'MP' },
+    shotgun:      { owned: false, damage: 60,  cooldown: 0.8,  name: 'Schrotflinte' },
+    machinegun:   { owned: false, damage: 15,  cooldown: 0.1,  name: 'MG' },
+    sniper:       { owned: false, damage: 120, cooldown: 1.2,  name: 'Scharfschuetze' },
+    flamethrower: { owned: false, damage: 8,   cooldown: 0.06, name: 'Flammenwerfer' },
+    launcher:     { owned: false, damage: 80,  cooldown: 1.5,  name: 'Raketenwerfer' },
+    railgun:      { owned: false, damage: 200, cooldown: 2.5,  name: 'Railgun' }
 }
+// Server (server.js) hat weiterhin nur 3 Waffen (pistol, shotgun, mg)
 ```
 
 ### Dateigroessen (aktuell)
 - server.js: ~1007 Zeilen (groesste Datei)
-- js/renderer.js: ~593 Zeilen
-- js/game.js: ~565 Zeilen
-- js/hud.js: ~534 Zeilen
+- js/game.js: ~780 Zeilen (Solo-Wellenmodus + Spezial-Waffen-Logik)
+- js/renderer.js: ~880 Zeilen (5 neue Waffen-Grafiken + Pickup-Sprites)
+- js/hud.js: ~600 Zeilen (Waffen-Leiste + Solo-HUD)
 - js/network.js: ~453 Zeilen
 - js/sound.js: ~413 Zeilen
-- js/player.js: ~252 Zeilen
+- js/player.js: ~270 Zeilen (8 Waffen)
 - js/engine.js: ~240 Zeilen
 - js/doors.js: ~220 Zeilen
 - js/map.js: ~212 Zeilen
-- js/enemy.js: ~176 Zeilen
+- js/enemy.js: ~200 Zeilen (Burn-Effekt + neue Pickup-Typen)
 - js/input.js: ~176 Zeilen
 - js/particles.js: ~90 Zeilen
-- index.html: ~72 Zeilen
-- styles.css: ~170 Zeilen
-- **Gesamt: ~5173 Zeilen**
+- index.html: ~80 Zeilen
+- styles.css: ~235 Zeilen
 
 ### Befehle
 - `npm start` - Server starten (localhost:3000)

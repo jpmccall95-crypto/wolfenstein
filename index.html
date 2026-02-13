@@ -10,15 +10,22 @@
     <canvas id="gameCanvas" width="640" height="480"></canvas>
 
     <div id="startScreen">
+        <img src="img/centric-logo.png" alt="Centric" style="width:200px; margin-bottom:10px;">
         <h1>WOLFENSTEIN 3D</h1>
         <p class="subtitle">- Browser Klon -</p>
 
-        <!-- Singleplayer-Start (Standard wenn kein Server) -->
+        <!-- Modus-Auswahl (immer sichtbar) -->
         <div id="spStart">
-            <p class="prompt">Klicke um zu starten!</p>
+            <div id="spModeSelect" class="modeSelect">
+                <button id="modeSolo" class="modeBtn active">SOLO WELLEN</button>
+                <button id="modeCoopStart" class="modeBtn">CO-OP</button>
+                <button id="modeDMStart" class="modeBtn">DEATHMATCH</button>
+            </div>
+            <p id="spModeDesc" class="spModeDesc">Ueberlebe Gegnerwellen die immer staerker werden! Kaufe Waffen mit Gold.</p>
+            <p class="prompt" id="startPrompt">Klicke um zu starten!</p>
         </div>
 
-        <!-- Multiplayer-Beitritt -->
+        <!-- Multiplayer-Beitritt (Name-Eingabe fuer Co-op/DM) -->
         <div id="mpJoin" style="display:none;">
             <input type="text" id="nameInput" maxlength="15"
                    placeholder="Spielername..." class="nameInput" autocomplete="off">
@@ -47,9 +54,17 @@
         <div class="controls">
             <p>WASD - Bewegen | Maus - Umsehen</p>
             <p>Linksklick - Schie&szlig;en | E - Interagieren</p>
-            <p>1/2/3 oder Scrollrad - Waffe wechseln</p>
+            <p>1-8 oder Scrollrad - Waffe wechseln</p>
             <p>Tab - Scoreboard | Enter - Chat</p>
         </div>
+    </div>
+
+    <!-- Pause-Menue (wird bei ESC angezeigt) -->
+    <div id="pauseMenu" style="display:none;">
+        <h2>PAUSE</h2>
+        <button id="resumeBtn" class="pauseBtn">WEITERSPIELEN</button>
+        <button id="leaveBtn" class="pauseBtn leaveBtn">SPIEL VERLASSEN</button>
+        <p class="pauseHint">ESC zum Fortsetzen</p>
     </div>
 
     <!-- Socket.io Client (nur verfuegbar wenn Server laeuft) -->

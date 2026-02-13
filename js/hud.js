@@ -12,7 +12,8 @@ const HUD = {
 
     // Alle HUD-Elemente zeichnen
     // net = Network-Objekt (oder null fuer Singleplayer)
-    draw(ctx, player, enemies, fps, net, pickups) {
+    // soloData = optionales Objekt fuer Solo-Wellenmodus
+    draw(ctx, player, enemies, fps, net, pickups, soloData) {
         this._drawCrosshair(ctx);
         this._drawHealth(ctx, player);
         this._drawGold(ctx, player);
@@ -53,6 +54,12 @@ const HUD = {
                 } else {
                     this._drawMPDeath(ctx, net);
                 }
+            }
+        } else if (soloData) {
+            // Solo-Wellenmodus HUD
+            this._drawSoloWaveInfo(ctx, soloData, enemies);
+            if (!player.alive) {
+                this._drawSoloGameOver(ctx, soloData.wave);
             }
         } else if (!player.alive) {
             // SP Game-Over
@@ -120,32 +127,52 @@ const HUD = {
         ctx.fillText(player.gold.toString(), x, y + 17);
     },
 
-    // --- Aktuelle Waffe (unten rechts) ---
+    // --- Waffen-Leiste (horizontale 8 Slots unten mittig) ---
     _drawWeaponIndicator(ctx, player) {
-        const wp = player.weapons[player.currentWeapon];
-        if (!wp) return;
-        const x = Engine.screenWidth - 180;
-        const y = Engine.screenHeight - 50;
+        const slotW = 56, slotH = 22, gap = 2;
+        const totalW = 8 * slotW + 7 * gap;
+        const startX = (Engine.screenWidth - totalW) / 2;
+        const y = Engine.screenHeight - 28;
+        const shortNames = {
+            pistol: 'PIST', smg: 'MP', shotgun: 'SHGN',
+            machinegun: 'MG', sniper: 'SNPR', flamethrower: 'FLMW',
+            launcher: 'RKTW', railgun: 'RAIL'
+        };
 
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-        ctx.fillRect(x - 5, y - 25, 175, 55);
+        for (let i = 0; i < player.weaponList.length; i++) {
+            const wId = player.weaponList[i];
+            const wp = player.weapons[wId];
+            const sx = startX + i * (slotW + gap);
+            const isActive = player.currentWeapon === wId;
+            const owned = wp && wp.owned;
 
-        ctx.fillStyle = '#aaa';
-        ctx.font = '12px Courier New';
-        ctx.fillText('WAFFE', x, y - 8);
+            // Hintergrund
+            if (isActive) {
+                ctx.fillStyle = 'rgba(200, 0, 0, 0.7)';
+            } else if (owned) {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+            } else {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+            }
+            ctx.fillRect(sx, y, slotW, slotH);
 
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 14px Courier New';
-        ctx.fillText(wp.name, x, y + 10);
+            // Rand
+            ctx.strokeStyle = isActive ? '#ff4444' : (owned ? '#666' : '#333');
+            ctx.lineWidth = 1;
+            ctx.strokeRect(sx, y, slotW, slotH);
 
-        // Tasten-Hinweis
-        ctx.fillStyle = '#555';
-        ctx.font = '9px Courier New';
-        const hints = [];
-        if (player.weapons.pistol.owned) hints.push('1-Pist');
-        if (player.weapons.shotgun.owned) hints.push('2-Schrot');
-        if (player.weapons.machinegun.owned) hints.push('3-MG');
-        ctx.fillText(hints.join(' '), x, y + 26);
+            // Text
+            ctx.font = 'bold 9px Courier New';
+            ctx.textAlign = 'center';
+            if (owned) {
+                ctx.fillStyle = isActive ? '#ffffff' : '#aaa';
+                ctx.fillText((i + 1) + '-' + shortNames[wId], sx + slotW / 2, y + 14);
+            } else {
+                ctx.fillStyle = '#444';
+                ctx.fillText((i + 1) + '-?', sx + slotW / 2, y + 14);
+            }
+        }
+        ctx.textAlign = 'left';
     },
 
     // --- Interaktionshinweis (Tuer vor dem Spieler) ---
@@ -172,7 +199,7 @@ const HUD = {
         }
     },
 
-    // --- Waffen-Kauf-Hinweis ---
+    // --- Waffen-Kauf-Hinweis (generisch fuer alle weapon_* Typen) ---
     _drawPurchaseHint(ctx, player, pickups) {
         for (const p of pickups) {
             if (!p.active || !p.weaponType) continue;
@@ -183,14 +210,26 @@ const HUD = {
                     const w = Engine.screenWidth;
                     const cy = Engine.screenHeight / 2;
                     ctx.fillStyle = 'rgba(0,0,0,0.6)';
-                    ctx.fillRect(w / 2 - 110, cy + 55, 220, 24);
+                    ctx.fillRect(w / 2 - 130, cy + 55, 260, 24);
                     ctx.textAlign = 'center';
                     const canAfford = player.gold >= p.weaponCost;
                     ctx.fillStyle = canAfford ? '#44ff44' : '#ff4444';
                     ctx.font = '12px Courier New';
                     const text = wp.name + ': ' + p.weaponCost + ' Gold'
-                        + (canAfford ? '' : ' (zu wenig!)');
+                        + (canAfford ? ' (Drueberlaufen!)' : ' (zu wenig!)');
                     ctx.fillText(text, w / 2, cy + 72);
+                    ctx.textAlign = 'left';
+                    return;
+                } else if (wp && wp.owned) {
+                    // Schon besessen
+                    const w = Engine.screenWidth;
+                    const cy = Engine.screenHeight / 2;
+                    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+                    ctx.fillRect(w / 2 - 80, cy + 55, 160, 24);
+                    ctx.textAlign = 'center';
+                    ctx.fillStyle = '#888';
+                    ctx.font = '12px Courier New';
+                    ctx.fillText(wp.name + ' (besitzt du)', w / 2, cy + 72);
                     ctx.textAlign = 'left';
                     return;
                 }
@@ -529,6 +568,71 @@ const HUD = {
         ctx.fillStyle = '#cc0000';
         ctx.font = '20px Courier New';
         ctx.fillText('Klicke zum Neustarten', w / 2, h / 2 + 30);
+        ctx.textAlign = 'left';
+    },
+
+    // === SOLO-WELLENMODUS HUD ===
+
+    // --- Solo Wellen-Anzeige (oben mittig) ---
+    _drawSoloWaveInfo(ctx, soloData, enemies) {
+        const w = Engine.screenWidth;
+
+        if (soloData.betweenWaves && soloData.countdown > 0) {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+            ctx.fillRect(w / 2 - 130, 35, 260, 50);
+            ctx.fillStyle = '#ffcc00';
+            ctx.font = 'bold 16px Courier New';
+            ctx.textAlign = 'center';
+            if (soloData.wave === 0) {
+                ctx.fillText('SPIEL STARTET IN', w / 2, 55);
+            } else {
+                ctx.fillText('NAECHSTE WELLE IN', w / 2, 55);
+            }
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 22px Courier New';
+            ctx.fillText(Math.ceil(soloData.countdown).toString(), w / 2, 78);
+            ctx.textAlign = 'left';
+        } else if (soloData.wave > 0) {
+            const isBossWave = soloData.wave % 5 === 0;
+            const bossAlive = enemies.some(e => e.boss && e.alive);
+
+            ctx.fillStyle = isBossWave ? 'rgba(80, 0, 0, 0.7)' : 'rgba(0, 0, 0, 0.5)';
+            ctx.fillRect(w / 2 - 80, 35, 160, 24);
+
+            ctx.fillStyle = isBossWave ? '#ff4444' : '#ffcc00';
+            ctx.font = 'bold 14px Courier New';
+            ctx.textAlign = 'center';
+            ctx.fillText((isBossWave ? 'BOSS ' : '') + 'WELLE ' + soloData.wave, w / 2, 52);
+
+            const alive = enemies.filter(e => e.alive).length;
+            if (alive > 0) {
+                ctx.fillStyle = '#ff4444';
+                ctx.font = '12px Courier New';
+                const bossText = bossAlive ? ' (+ BOSS)' : '';
+                ctx.fillText(alive + ' Gegner' + bossText, w / 2, 70);
+            }
+            ctx.textAlign = 'left';
+        }
+    },
+
+    // --- Solo Game-Over Screen ---
+    _drawSoloGameOver(ctx, wave) {
+        const w = Engine.screenWidth, h = Engine.screenHeight;
+        ctx.fillStyle = 'rgba(100, 0, 0, 0.7)';
+        ctx.fillRect(0, 0, w, h);
+
+        ctx.fillStyle = '#ff0000';
+        ctx.font = 'bold 48px Courier New';
+        ctx.textAlign = 'center';
+        ctx.fillText('GAME OVER', w / 2, h / 2 - 30);
+
+        ctx.fillStyle = '#ffcc00';
+        ctx.font = 'bold 24px Courier New';
+        ctx.fillText('Welle ' + wave + ' erreicht', w / 2, h / 2 + 15);
+
+        ctx.fillStyle = '#888';
+        ctx.font = '14px Courier New';
+        ctx.fillText('Klicke zum Neustarten', w / 2, h / 2 + 50);
         ctx.textAlign = 'left';
     }
 };
