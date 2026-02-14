@@ -76,9 +76,9 @@
 - Gold-System: Gegner droppen Gold (40% Chance), grosse Schaetze in Geheimraeumen
   - Gold-Anzeige im HUD, Kauf-Hinweis bei Waffen-Pickups
   - Gold-Pickups sind lokal (clientseitig), nicht server-verwaltet
-- Groessere Karte: 40x40 mit 10 Raeumen, 14 Tueren (11 normal + 3 geheim)
-  - 3 Geheimraeume in den Aussenmauern
-  - 15 Gegner-Spawns, 14 Spieler-Spawns, 10 Schatz-Spawns, 3 Waffen-Spawns
+- Groessere Karte: 54x54 mit 16 Raeumen, 4 Geheimraeumen
+  - 4 Geheimraeume in den Aussenmauern (links oben, rechts oben, links unten, rechts unten)
+  - 20 Gegner-Spawns, 18 Spieler-Spawns, 14 Schatz-Spawns, 3 Waffen-Spawns
 - Hintergrundmusik: Prozedural generierter Chiptune-Stil (Web Audio API)
   - 140 BPM, Bass + Melodie (2 Sektionen) + Schlagzeug (Kick, Snare, HiHat)
   - Leiser als Soundeffekte (Lautstaerke 0.12)
@@ -191,15 +191,16 @@ Kurze Keys fuer Bandbreite:
 - Boss-Gegner haben eigene `damage`-Eigenschaft statt globaler Konstante
 - Alle Code-Kommentare sind auf Deutsch
 
-### Karte (40x40)
+### Karte (54x54)
 - Wandtypen: 0=Leer, 1=Stein, 2=Backstein, 3=Holz, 4=Metall, 5=Tuer, 6=Geheimtuer
-- 10 Raeume: TL, TC, TR, ML, MR, ML2, MR2, BL, BC, BR
-- Zentraler Arena-Bereich in der Mitte
-- 3 Geheimraeume: Links (Wand), Rechts (Wand), Zentral (Arena)
-- Spawn-Positionen in SPAWN_POINTS Array (14 Stueck)
-- Gegner-Spawns in ENEMY_SPAWNS Array (15 Stueck)
-- Schatz-Spawns in TREASURE_SPAWNS Array (10 Stueck, {x, y, type})
+- 16 Raeume: TL, TC1, TC2, TR, ML, MR, ML2, MR2, BL, BC1, BC2, BR + oberer/unterer Arena-Vorraum
+- Grosse zentrale Arena (Reihe 24-30, Spalte 14-39) mit Pfeilern
+- 4 Geheimraeume: Links oben (10-14, 0-2), Rechts oben (10-14, 51-53), Links unten (40-44, 0-2), Rechts unten (40-44, 51-53)
+- Spawn-Positionen in SPAWN_POINTS Array (18 Stueck)
+- Gegner-Spawns in ENEMY_SPAWNS Array (20 Stueck)
+- Schatz-Spawns in TREASURE_SPAWNS Array (14 Stueck, {x, y, type})
 - Waffen-Spawns in WEAPON_SPAWNS Array (3 Stueck, {x, y, type})
+- Solo-Waffen-Spawns in SOLO_WEAPON_SPAWNS (game.js, 7 Stueck)
 
 ### Server-Konstanten (server.js)
 ```

@@ -7,7 +7,7 @@
 // ============================================
 
 const HUD = {
-    minimapScale: 4,
+    minimapScale: 3,
     minimapAlpha: 0.75,
 
     // Alle HUD-Elemente zeichnen

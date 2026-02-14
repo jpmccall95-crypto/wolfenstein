@@ -6,13 +6,13 @@
 
 // Solo-Waffen-Pickups auf der Karte (7 Waffen, Pistole ist gratis)
 const SOLO_WEAPON_SPAWNS = [
-    { x: 20.5, y: 10.5, type: 'weapon_smg' },           // Oberer Korridor (nah)
-    { x: 12.5, y: 9.5,  type: 'weapon_shotgun' },        // Oberer Korridor links
-    { x: 3.5,  y: 17.5, type: 'weapon_mg' },              // ML-Raum (MG)
-    { x: 36.5, y: 16.5, type: 'weapon_sniper' },         // MR-Raum
-    { x: 1.5,  y: 10.5, type: 'weapon_flamethrower' },   // Geheimraum links
-    { x: 38.5, y: 10.5, type: 'weapon_launcher' },       // Geheimraum rechts
-    { x: 20.5, y: 22.5, type: 'weapon_railgun' },        // Arena-Geheimraum (teuerste)
+    { x: 27.5, y: 12.5, type: 'weapon_smg' },           // Oberer Korridor Mitte (nah)
+    { x: 15.5, y: 11.5, type: 'weapon_shotgun' },       // Oberer Korridor links
+    { x: 4.5,  y: 19.5, type: 'weapon_mg' },            // ML-Raum
+    { x: 49.5, y: 19.5, type: 'weapon_sniper' },        // MR-Raum
+    { x: 1.5,  y: 12.5, type: 'weapon_flamethrower' },  // Geheimraum links oben
+    { x: 52.5, y: 12.5, type: 'weapon_launcher' },      // Geheimraum rechts oben
+    { x: 27.5, y: 27.5, type: 'weapon_railgun' },       // Arena-Zentrum (teuerste)
 ];
 
 const Game = {
