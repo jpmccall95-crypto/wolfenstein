@@ -63,6 +63,9 @@ const Input = {
             }
 
             // Normaler Spielinput
+            // Nicht abfangen wenn ein Eingabefeld fokussiert ist (z.B. Namensfeld)
+            if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
+
             this.keys[e.code] = true;
             if (['Space', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyE'].includes(e.code)) {
                 e.preventDefault();

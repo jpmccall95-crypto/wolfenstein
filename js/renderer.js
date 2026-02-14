@@ -40,45 +40,82 @@ const Renderer = {
 
     // Sprites vorrendern
     _createSprites() {
-        // --- Gegner-Sprite (64x64, gruener Soldat) ---
+        // --- Gegner-Sprite (64x64, brauner Soldat mit Stahlhelm) ---
+        // Deutlich anders als Spieler-Sprites (die bunt/farbig sind)
         this.enemySprite = this._createSpriteCanvas(64, 64, (ctx) => {
-            ctx.fillStyle = '#2a7a2a';
+            // Koerper (braun/khaki Uniform)
+            ctx.fillStyle = '#6b5a3a';
             ctx.fillRect(18, 22, 28, 30);
             ctx.fillRect(10, 24, 44, 10);
-            ctx.fillStyle = '#3a9a3a';
-            ctx.beginPath(); ctx.arc(32, 16, 11, 0, Math.PI * 2); ctx.fill();
-            ctx.fillStyle = '#1a5a1a';
-            ctx.fillRect(21, 6, 22, 10);
-            ctx.fillRect(19, 10, 26, 4);
+            // Schulterpolster (dunkler)
+            ctx.fillStyle = '#5a4a2a';
+            ctx.fillRect(8, 22, 8, 12);
+            ctx.fillRect(48, 22, 8, 12);
+            // Kopf (haut)
+            ctx.fillStyle = '#c4956a';
+            ctx.beginPath(); ctx.arc(32, 16, 10, 0, Math.PI * 2); ctx.fill();
+            // Stahlhelm (dunkelgrau, kantiger)
+            ctx.fillStyle = '#3a3a3a';
+            ctx.fillRect(19, 4, 26, 12);
+            ctx.fillRect(17, 8, 30, 6);
+            ctx.fillStyle = '#2a2a2a';
+            ctx.fillRect(20, 14, 24, 3); // Helmrand/Schatten
+            // Augen (rot leuchtend - boese!)
             ctx.fillStyle = '#ff0000';
-            ctx.fillRect(26, 14, 4, 3);
-            ctx.fillRect(34, 14, 4, 3);
-            ctx.fillStyle = '#1a5a1a';
+            ctx.fillRect(26, 13, 4, 3);
+            ctx.fillRect(34, 13, 4, 3);
+            // Mund (dunkler Schlitz)
+            ctx.fillStyle = '#3a2518';
+            ctx.fillRect(28, 20, 8, 2);
+            // Guertel
+            ctx.fillStyle = '#2a2a2a';
+            ctx.fillRect(18, 40, 28, 3);
+            ctx.fillStyle = '#ccaa00';
+            ctx.fillRect(29, 39, 6, 5); // Guertelschnalle gold
+            // Stiefel (schwarz)
+            ctx.fillStyle = '#1a1a1a';
             ctx.fillRect(20, 52, 10, 12);
             ctx.fillRect(34, 52, 10, 12);
-            ctx.fillStyle = '#444';
-            ctx.fillRect(48, 28, 12, 4);
-            ctx.fillRect(54, 26, 4, 8);
+            // Waffe (Gewehr, dunkel)
+            ctx.fillStyle = '#333';
+            ctx.fillRect(48, 26, 14, 4);
+            ctx.fillRect(56, 24, 4, 8);
+            ctx.fillStyle = '#4a3020';
+            ctx.fillRect(48, 30, 8, 6); // Holzschaft
         });
 
-        // --- Gegner bei Treffer (rot getoent) ---
+        // --- Gegner bei Treffer (rot aufblitzend) ---
         this.enemyHurtSprite = this._createSpriteCanvas(64, 64, (ctx) => {
+            // Koerper rot
             ctx.fillStyle = '#aa3333';
             ctx.fillRect(18, 22, 28, 30);
             ctx.fillRect(10, 24, 44, 10);
-            ctx.fillStyle = '#cc4444';
-            ctx.beginPath(); ctx.arc(32, 16, 11, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#993322';
+            ctx.fillRect(8, 22, 8, 12);
+            ctx.fillRect(48, 22, 8, 12);
+            // Kopf
+            ctx.fillStyle = '#dd7755';
+            ctx.beginPath(); ctx.arc(32, 16, 10, 0, Math.PI * 2); ctx.fill();
+            // Helm rot
             ctx.fillStyle = '#882222';
-            ctx.fillRect(21, 6, 22, 10);
-            ctx.fillRect(19, 10, 26, 4);
+            ctx.fillRect(19, 4, 26, 12);
+            ctx.fillRect(17, 8, 30, 6);
+            ctx.fillStyle = '#771111';
+            ctx.fillRect(20, 14, 24, 3);
+            // Augen weiss (Schmerz)
             ctx.fillStyle = '#ffffff';
-            ctx.fillRect(26, 14, 4, 3);
-            ctx.fillRect(34, 14, 4, 3);
-            ctx.fillStyle = '#882222';
+            ctx.fillRect(26, 13, 4, 3);
+            ctx.fillRect(34, 13, 4, 3);
+            // Guertel
+            ctx.fillStyle = '#661111';
+            ctx.fillRect(18, 40, 28, 3);
+            // Stiefel
+            ctx.fillStyle = '#551111';
             ctx.fillRect(20, 52, 10, 12);
             ctx.fillRect(34, 52, 10, 12);
+            // Waffe
             ctx.fillStyle = '#666';
-            ctx.fillRect(48, 28, 12, 4);
+            ctx.fillRect(48, 26, 14, 4);
         });
 
         // --- Boss-Sprite (64x64, dunkelviolett/rot, groesser wirkend) ---

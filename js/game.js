@@ -393,18 +393,17 @@ const Game = {
 
     // Level aufbauen
     _setupLevel() {
-        const spawn = this.isMultiplayer
-            ? SPAWN_POINTS[Math.floor(Math.random() * SPAWN_POINTS.length)]
-            : PLAYER_START;
+        const spawn = this.isSolo
+            ? PLAYER_START
+            : SPAWN_POINTS[Math.floor(Math.random() * SPAWN_POINTS.length)];
         this.player = new Player(spawn.x, spawn.y, spawn.angle || 0);
 
         // Pickups erstellen
         this.pickups = [];
 
-        if (!this.isMultiplayer) {
+        if (this.isSolo) {
             // Solo-Wellenmodus: Keine festen Gegner, Wellen spawnen sie
             this.enemies = [];
-            this.isSolo = true;
             this.soloWave = {
                 wave: 0,
                 countdown: 5, // 5s Countdown vor Welle 1
@@ -472,11 +471,11 @@ const Game = {
         Particles.update(dt);
         Doors.update(dt);
 
-        if (this.isMultiplayer) {
-            this._updateMP(dt);
-        } else {
-            // Solo-Wellenmodus (einziger Offline-Modus)
+        if (this.isSolo) {
+            // Solo-Wellenmodus (offline oder ueber Server)
             this._updateSolo(dt);
+        } else {
+            this._updateMP(dt);
         }
     },
 
@@ -925,7 +924,12 @@ const Game = {
     // Rendering (verzweigt nach Modus)
     // ============================================
     _render() {
-        if (this.isMultiplayer) {
+        if (this.isSolo) {
+            // Solo-Wellenmodus
+            Renderer.renderFrame(this.player, this.enemies, this.pickups, []);
+            HUD.draw(this.ctx, this.player, this.enemies, this.currentFps, null, this.pickups, this.soloWave);
+            Particles.draw(this.ctx);
+        } else if (this.isMultiplayer) {
             const remotePlayers = Object.values(Network.remotePlayers);
 
             if (Network.gameMode === 'coop') {
@@ -951,11 +955,6 @@ const Game = {
                 HUD.draw(this.ctx, this.player, [], this.currentFps, Network, localPickups);
             }
 
-            Particles.draw(this.ctx);
-        } else {
-            // Solo-Wellenmodus (einziger Offline-Modus)
-            Renderer.renderFrame(this.player, this.enemies, this.pickups, []);
-            HUD.draw(this.ctx, this.player, this.enemies, this.currentFps, null, this.pickups, this.soloWave);
             Particles.draw(this.ctx);
         }
     },
