@@ -145,6 +145,9 @@ const Game = {
             // Nicht bei Klick auf Buttons oder Eingabefelder
             if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT') return;
 
+            // Audio entsperren (muss im Klick-Handler passieren, Browser-Policy)
+            Sound.unlock();
+
             // Solo: Direkt starten
             if (this.isSolo && !this.started) {
                 this.canvas.requestPointerLock();
@@ -186,6 +189,7 @@ const Game = {
         });
 
         this.canvas.addEventListener('click', () => {
+            Sound.unlock();
             if (this.started && this.player && !this.player.alive && this.isSolo) {
                 this.canvas.requestPointerLock();
             }

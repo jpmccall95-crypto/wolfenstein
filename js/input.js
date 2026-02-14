@@ -107,8 +107,9 @@ const Input = {
             this.pointerLocked = document.pointerLockElement === canvas;
         });
 
-        // Klick auf Canvas aktiviert Pointer Lock
+        // Klick auf Canvas aktiviert Pointer Lock + Audio entsperren
         canvas.addEventListener('click', () => {
+            if (typeof Sound !== 'undefined') Sound.unlock();
             if (!this.pointerLocked) {
                 canvas.requestPointerLock();
             }
