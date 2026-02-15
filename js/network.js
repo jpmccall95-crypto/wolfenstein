@@ -34,6 +34,13 @@ const Network = {
     coopCountdown: 0,
     coopGameOver: false,
 
+    // DM Zustand
+    dmKillLimit: 20,
+    dmGameOver: false,
+
+    // Spielende-Daten (fuer Endscreen)
+    gameEndData: null,
+
     // Kill-Feed
     killFeed: [],
     killFeedDuration: 5000,
@@ -63,6 +70,7 @@ const Network = {
     onWaveStart: null,
     onDoorOpen: null,
     onEnemyKilled: null,
+    onGameEnd: null,
 
     // Pruefen ob Socket.io verfuegbar ist
     init() {
@@ -95,6 +103,8 @@ const Network = {
             this.gameStarted = true;
             this.coopGameOver = false;
             this.coopWave = 0;
+            this.dmGameOver = false;
+            this.gameEndData = null;
             if (this.onGameStart) this.onGameStart(data);
         });
 
@@ -107,6 +117,8 @@ const Network = {
             this.coopPickups = [];
             this.localKills = 0;
             this.localDeaths = 0;
+            this.dmGameOver = false;
+            this.gameEndData = null;
             if (this.onReturnToLobby) this.onReturnToLobby();
         });
 
@@ -191,6 +203,20 @@ const Network = {
         this.socket.on('coopGameOver', (data) => {
             this.coopGameOver = true;
             this.coopWave = data.wave;
+        });
+
+        // --- Spielende (DM Kill-Limit oder Co-op Game Over) ---
+        this.socket.on('gameEnd', (data) => {
+            this.gameEndData = {
+                mode: data.mode,
+                winnerId: data.winnerId,
+                winnerName: data.winnerName,
+                wave: data.wave,
+                scores: data.scores,
+                killLimit: data.killLimit,
+                time: Date.now()
+            };
+            if (this.onGameEnd) this.onGameEnd(data);
         });
 
         // --- Ping-Antwort ---
@@ -340,6 +366,10 @@ const Network = {
             this.coopCountdown = state.countdown || 0;
             if (state.gameOver) this.coopGameOver = true;
         }
+
+        // DM-Zustand
+        if (state.killLimit !== undefined) this.dmKillLimit = state.killLimit;
+        if (state.dmGameOver) this.dmGameOver = true;
 
         // Tuer-Zustaende synchronisieren
         if (state.doors !== undefined && typeof Doors !== 'undefined') {

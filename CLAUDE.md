@@ -10,11 +10,11 @@
 - Erklaerungen einfach und verstaendlich halten, Fachbegriffe kurz erlaeutern
 - Bei Entscheidungen klare Empfehlungen geben statt nur Optionen aufzulisten
 
-## Projektstatus: Phase 4 + Boss + Solo-Wellenmodus + 8 Waffen
+## Projektstatus: Phase 4 + Boss + Solo-Wellenmodus + 8 Waffen + Grosse Map + Scoreboard
 
 ### Git & Hosting Status
 - **GitHub Repo:** https://github.com/jpmccall95-crypto/wolfenstein
-- **Letzter Commit:** `676bb06` (Solo-Wellenmodus + 8 Waffen: 3 Modi)
+- **Letzter Commit:** `e44f9a1` (Groessere Map: 54x54, 16 Raeume, 4 Geheimraeume)
 - **Alles committet und auf GitHub gepusht**
 - **Hosting:** Railway (live)
   - **URL: https://wolfenstein.up.railway.app**
@@ -135,6 +135,44 @@
 - 5 neue Waffen-Grafiken (prozedural gezeichnet im Renderer)
 - Alle Dateien geaendert: index.html, styles.css, player.js, enemy.js, game.js, hud.js, renderer.js
 
+**Gegner-Sprites Redesign** (committet in `020c0f8`)
+- Gegner-Sprites komplett ueberarbeitet fuer bessere Unterscheidbarkeit von Spielern
+- Neues Design: Braun/Khaki Uniform (#6b5a3a), Stahlhelm (#3a3a3a), rote Augen
+- Goldene Guertelschnalle, schwarze Stiefel, Gewehr mit Holzschaft
+- Hurt-Sprite blinkt rot mit gleichem Design
+- Boss-Sprites unveraendert (bereits gut unterscheidbar mit violett/Hoernern)
+
+**Bugfixes dieser Session** (committet in `020c0f8` und `ae891ad`)
+- **Buchstabe "a" nicht tippbar im Namensfeld**: keydown-Handler hat KeyA auf document-Ebene blockiert (preventDefault). Fix: Pruefen ob ein INPUT-Feld fokussiert ist, dann Spieltasten ignorieren.
+- **Solo-Wellen starten nicht**: Code pruefte `this.isMultiplayer` statt `this.isSolo` in _setupLevel(), _update(), _render(). Wenn ueber Server geladen, war isMultiplayer=true auch im Solo-Modus. Fix: `this.isSolo` wird jetzt zuerst geprueft.
+- **Boss-Wellen fehlten im Solo**: Code war implementiert in _startNextSoloWave(), wurde aber nie aufgerufen wegen obigem Bug. Durch Fix #2 automatisch behoben.
+- **Kein Sound nach Updates**: Sound.unlock() (AudioContext.resume()) wurde nur im pointerlockchange-Event aufgerufen, was kein direkter User-Gesture ist. Fix: Sound.unlock() in drei Klick-Handler eingefuegt (startScreen, Canvas in game.js, Canvas in input.js).
+
+**Groessere Map** (committet in `e44f9a1`)
+- Karte von 40x40 auf 54x54 vergroessert (ca. 1/3 groesser)
+- 10 → 16 Raeume (TC1/TC2 statt TC, BC1/BC2 statt BC, Arena-Vorraeume)
+- 3 → 4 Geheimraeume (je 2 links und rechts in den Aussenmauern)
+- 15 → 20 Gegner-Spawns, 14 → 18 Spieler-Spawns, 10 → 14 Schatz-Spawns
+- Groessere zentrale Arena (Reihe 24-30, Spalte 14-39) mit Pfeilern
+- Mehr Korridore und offene Bereiche zwischen Raeumen
+- SOLO_WEAPON_SPAWNS in game.js an neue Positionen angepasst
+- Minimap-Skalierung von 4 auf 3 reduziert (hud.js)
+
+**Scoreboard / Rangliste** (noch nicht committet)
+- Mini-Rangliste: Immer sichtbar oben links (unter FPS), max 5 Spieler, sortiert nach Kills
+  - DM: Zeigt Fortschrittsbalken zum Kill-Limit pro Spieler
+  - Co-op: Zeigt nur Kills
+- Tab-Scoreboard verbessert: DM zeigt Kill-Limit "(20 Kills)", Co-op zeigt Wellen-Nummer
+- Deathmatch Kill-Limit: DM_KILL_LIMIT = 20, erster Spieler mit 20 Kills gewinnt
+- Grosser Endscreen bei Spielende (ersetzt einfachen Game-Over fuer MP):
+  - DM: "SIEG!" / "SPIEL VORBEI" mit Gewinner und Rangliste
+  - Co-op: "GAME OVER" mit erreichter Welle und Rangliste
+  - 10s Countdown zurueck zur Lobby
+- Neues Server-Event: `gameEnd` mit finaler Rangliste, Gewinner, Modus
+- DM Game-Over Zustand im Server (dm.gameOver, dm.gameOverTime, dm.winnerId)
+- Neue Felder in network.js: gameEndData, dmKillLimit, dmGameOver, onGameEnd
+- Dateien geaendert: server.js, js/network.js, js/hud.js, js/game.js
+
 ### Bekannte Probleme / TODOs
 - Kein Friendly-Fire Check im Co-op (Spieler koennen sich nicht gegenseitig treffen - ist OK da checkShotPlayers nur im DM verwendet wird)
 - Keine Persistenz (Scores gehen bei Serverneustart verloren)
@@ -230,20 +268,20 @@ weapons: {
 ```
 
 ### Dateigroessen (aktuell)
-- server.js: ~1007 Zeilen (groesste Datei)
-- js/game.js: ~780 Zeilen (Solo-Wellenmodus + Spezial-Waffen-Logik)
-- js/renderer.js: ~880 Zeilen (5 neue Waffen-Grafiken + Pickup-Sprites)
-- js/hud.js: ~600 Zeilen (Waffen-Leiste + Solo-HUD)
+- js/game.js: ~1028 Zeilen (Solo-Wellenmodus + Spezial-Waffen-Logik)
+- server.js: ~1007 Zeilen
+- js/renderer.js: ~908 Zeilen (5 neue Waffen-Grafiken + Pickup-Sprites + neue Gegner-Sprites)
+- js/hud.js: ~638 Zeilen (Waffen-Leiste + Solo-HUD)
 - js/network.js: ~453 Zeilen
 - js/sound.js: ~413 Zeilen
 - js/player.js: ~270 Zeilen (8 Waffen)
+- js/map.js: ~257 Zeilen (54x54 Karte)
 - js/engine.js: ~240 Zeilen
 - js/doors.js: ~220 Zeilen
-- js/map.js: ~212 Zeilen
-- js/enemy.js: ~200 Zeilen (Burn-Effekt + neue Pickup-Typen)
-- js/input.js: ~176 Zeilen
+- js/enemy.js: ~201 Zeilen (Burn-Effekt + neue Pickup-Typen)
+- js/input.js: ~180 Zeilen
 - js/particles.js: ~90 Zeilen
-- index.html: ~80 Zeilen
+- index.html: ~87 Zeilen
 - styles.css: ~235 Zeilen
 
 ### Befehle
@@ -258,3 +296,6 @@ weapons: {
 2. **Spieler kann nicht durch offene Tueren laufen**: map.js `isWall()` fand Doors-Modul nicht auf Server. Loesung: `setDoorsModule()` Funktion + `_doorsRef` Variable.
 3. **Waffen funktionieren nicht im Co-op**: `_checkPickups()` nur in SP aufgerufen, Gegner droppten kein Gold, Server lehnte Waffenwechsel ab. Loesung: `_checkPickups()` auch in `_updateMP()`, `onEnemyKilled` Callback fuer Gold-Drops, Server akzeptiert Waffenwechsel.
 4. **Spawn-Positionen in Waenden**: Zwei Spawns kollidierten mit Pfeilern. Positionen verschoben.
+5. **Buchstabe "a" nicht tippbar im Namensfeld**: document-level keydown preventDefault blockierte KeyA auch in INPUT-Feldern. Loesung: `document.activeElement.tagName === 'INPUT'` Check in input.js.
+6. **Solo-Wellen starten nicht vom Server**: `isMultiplayer` war true wenn Socket.io geladen, auch im Solo-Modus. Loesung: `this.isSolo` zuerst pruefen in _setupLevel(), _update(), _render().
+7. **Kein Sound nach Code-Aenderungen**: AudioContext.resume() nur in pointerlockchange (kein User-Gesture). Loesung: Sound.unlock() in 3 Klick-Handler (startScreen, Canvas game.js, Canvas input.js).

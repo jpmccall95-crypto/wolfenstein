@@ -33,13 +33,14 @@ const HUD = {
         if (net && net.connected) {
             this._drawKillFeed(ctx, net.killFeed);
             this._drawChat(ctx, net.chatMessages);
+            this._drawMiniScoreboard(ctx, net);
 
             if (Input.chatActive) {
                 this._drawChatInput(ctx);
             }
 
             if (Input.showScoreboard) {
-                this._drawScoreboard(ctx, net.getScoreboard(), net.gameMode);
+                this._drawScoreboard(ctx, net.getScoreboard(), net.gameMode, net);
             }
 
             // Co-op: Wellen-Anzeige
@@ -47,8 +48,11 @@ const HUD = {
                 this._drawWaveInfo(ctx, net);
             }
 
-            // Tod-Bildschirme
-            if (!player.alive) {
+            // Endscreen (hat Prioritaet ueber alles andere)
+            if (net.gameEndData) {
+                this._drawGameEndScreen(ctx, net);
+            } else if (!player.alive) {
+                // Tod-Bildschirme (nur wenn kein Endscreen)
                 if (net.coopGameOver) {
                     this._drawCoopGameOver(ctx, net.coopWave);
                 } else {
@@ -402,7 +406,7 @@ const HUD = {
     },
 
     // --- Scoreboard (Tab-Taste) mit Ping ---
-    _drawScoreboard(ctx, scores, gameMode) {
+    _drawScoreboard(ctx, scores, gameMode, net) {
         const w = Engine.screenWidth;
         const h = Engine.screenHeight;
         const bw = 400;
@@ -419,7 +423,12 @@ const HUD = {
         ctx.fillStyle = '#ffcc00';
         ctx.font = 'bold 16px Courier New';
         ctx.textAlign = 'center';
-        const title = gameMode === 'coop' ? 'CO-OP' : 'DEATHMATCH';
+        let title;
+        if (gameMode === 'coop') {
+            title = 'CO-OP' + (net && net.coopWave > 0 ? ' - Welle ' + net.coopWave : '');
+        } else {
+            title = 'DEATHMATCH' + (net ? ' (' + net.dmKillLimit + ' Kills)' : '');
+        }
         ctx.fillText(title, w / 2, by + 24);
 
         ctx.fillStyle = '#888';
@@ -454,6 +463,164 @@ const HUD = {
             const pingText = typeof s.ping === 'number' ? s.ping + 'ms' : s.ping;
             ctx.fillText(pingText, bx + bw - 15, ly + 1);
             ly += lineH;
+        }
+        ctx.textAlign = 'left';
+    },
+
+    // --- Mini-Rangliste (immer sichtbar, oben links unter FPS) ---
+    _drawMiniScoreboard(ctx, net) {
+        const scores = net.getScoreboard();
+        if (scores.length === 0) return;
+
+        const x = 5, y = 32;
+        const lineH = 15;
+        const maxShow = Math.min(scores.length, 5);
+        const boxH = 18 + maxShow * lineH;
+        const boxW = 140;
+
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+        ctx.fillRect(x, y, boxW, boxH);
+
+        // Titel
+        ctx.fillStyle = '#888';
+        ctx.font = '9px Courier New';
+        ctx.textAlign = 'left';
+        if (net.gameMode === 'deathmatch') {
+            ctx.fillText('RANGLISTE (' + net.dmKillLimit + ')', x + 4, y + 11);
+        } else {
+            ctx.fillText('RANGLISTE', x + 4, y + 11);
+        }
+
+        let ly = y + 24;
+        for (let i = 0; i < maxShow; i++) {
+            const s = scores[i];
+            // Eigener Name hervorgehoben
+            ctx.fillStyle = s.isLocal ? '#ffffff' : (s.color || '#aaa');
+            ctx.font = s.isLocal ? 'bold 10px Courier New' : '10px Courier New';
+            ctx.textAlign = 'left';
+            // Name kuerzen wenn zu lang
+            const name = s.name.length > 10 ? s.name.substring(0, 9) + '.' : s.name;
+            ctx.fillText(name, x + 4, ly);
+            ctx.textAlign = 'right';
+            ctx.fillStyle = '#ddd';
+            ctx.fillText(s.kills.toString(), x + boxW - 4, ly);
+
+            // DM: Fortschrittsbalken
+            if (net.gameMode === 'deathmatch' && net.dmKillLimit > 0) {
+                const barX = x + boxW - 40;
+                const barW = 30;
+                const barH = 3;
+                const barY = ly - 7;
+                const pct = Math.min(1, s.kills / net.dmKillLimit);
+                ctx.fillStyle = 'rgba(255,255,255,0.1)';
+                ctx.fillRect(barX, barY, barW, barH);
+                ctx.fillStyle = pct >= 1 ? '#ff4444' : '#ffcc00';
+                ctx.fillRect(barX, barY, barW * pct, barH);
+            }
+
+            ly += lineH;
+        }
+        ctx.textAlign = 'left';
+    },
+
+    // --- Grosser Endscreen (DM Sieg / Co-op Game Over) ---
+    _drawGameEndScreen(ctx, net) {
+        const data = net.gameEndData;
+        if (!data) return;
+
+        const w = Engine.screenWidth, h = Engine.screenHeight;
+        const elapsed = (Date.now() - data.time) / 1000;
+        const remaining = Math.max(0, 10 - elapsed);
+
+        // Fullscreen-Overlay
+        ctx.fillStyle = data.mode === 'coop' ? 'rgba(80, 0, 0, 0.8)' : 'rgba(0, 0, 60, 0.8)';
+        ctx.fillRect(0, 0, w, h);
+
+        ctx.textAlign = 'center';
+
+        if (data.mode === 'deathmatch') {
+            // --- DM Endscreen ---
+            const isWinner = data.winnerId === net.playerId;
+
+            // Titel
+            ctx.fillStyle = isWinner ? '#ffcc00' : '#ff4444';
+            ctx.font = 'bold 48px Courier New';
+            ctx.fillText(isWinner ? 'SIEG!' : 'SPIEL VORBEI', w / 2, h / 2 - 100);
+
+            // Gewinner
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 20px Courier New';
+            ctx.fillText(data.winnerName + ' gewinnt mit ' + data.killLimit + ' Kills!', w / 2, h / 2 - 60);
+        } else {
+            // --- Co-op Endscreen ---
+            ctx.fillStyle = '#ff0000';
+            ctx.font = 'bold 48px Courier New';
+            ctx.fillText('GAME OVER', w / 2, h / 2 - 100);
+
+            ctx.fillStyle = '#ffcc00';
+            ctx.font = 'bold 20px Courier New';
+            ctx.fillText('Welle ' + data.wave + ' erreicht', w / 2, h / 2 - 60);
+        }
+
+        // Rangliste
+        const scores = data.scores;
+        if (scores && scores.length > 0) {
+            const tableW = 340;
+            const tableX = (w - tableW) / 2;
+            let ty = h / 2 - 30;
+
+            // Header
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+            ctx.fillRect(tableX, ty - 5, tableW, 22 + scores.length * 24);
+
+            ctx.fillStyle = '#888';
+            ctx.font = '11px Courier New';
+            ctx.textAlign = 'left';
+            ctx.fillText('#', tableX + 10, ty + 10);
+            ctx.fillText('SPIELER', tableX + 30, ty + 10);
+            ctx.textAlign = 'right';
+            ctx.fillText('KILLS', tableX + tableW - 70, ty + 10);
+            ctx.fillText('TODE', tableX + tableW - 15, ty + 10);
+            ty += 22;
+
+            for (let i = 0; i < scores.length; i++) {
+                const s = scores[i];
+                const isLocal = s.id === net.playerId;
+
+                // Hintergrund fuer eigenen Spieler
+                if (isLocal) {
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+                    ctx.fillRect(tableX + 2, ty - 3, tableW - 4, 22);
+                }
+
+                // Platz 1 hervorgehoben
+                if (i === 0) {
+                    ctx.fillStyle = '#ffcc00';
+                    ctx.font = 'bold 13px Courier New';
+                } else {
+                    ctx.fillStyle = s.color || '#aaa';
+                    ctx.font = '13px Courier New';
+                }
+
+                ctx.textAlign = 'left';
+                ctx.fillText((i + 1) + '.', tableX + 10, ty + 12);
+                ctx.fillText(s.name, tableX + 30, ty + 12);
+                ctx.fillStyle = '#ddd';
+                ctx.textAlign = 'right';
+                ctx.fillText(s.kills.toString(), tableX + tableW - 70, ty + 12);
+                ctx.fillText(s.deaths.toString(), tableX + tableW - 15, ty + 12);
+                ty += 24;
+            }
+        }
+
+        // Countdown
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#888';
+        ctx.font = '14px Courier New';
+        if (remaining > 0) {
+            ctx.fillText('Zurueck zur Lobby in ' + Math.ceil(remaining) + '...', w / 2, h / 2 + 140);
+        } else {
+            ctx.fillText('Zurueck zur Lobby...', w / 2, h / 2 + 140);
         }
         ctx.textAlign = 'left';
     },

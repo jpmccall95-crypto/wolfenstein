@@ -209,10 +209,8 @@ const Game = {
             joinBtn.textContent = 'Verbinde...';
 
             Network.connect(name, () => {
-                // Modus an Server senden (falls Host)
-                if (this._selectedMPMode && Network.isHost()) {
-                    Network.selectMode(this._selectedMPMode);
-                }
+                // Modus wird im onLobbyUpdate gesetzt (dort ist Host-Status bekannt)
+                this._modeSet = false;
                 this._showLobby();
             });
 
@@ -278,8 +276,19 @@ const Game = {
             }
         };
 
+        // Spielende (DM Kill-Limit oder Co-op Game Over)
+        Network.onGameEnd = (data) => {
+            // gameEndData wird in network.js gesetzt, HUD liest es direkt
+            console.log('Spiel beendet:', data.mode, data.winnerName || ('Welle ' + data.wave));
+        };
+
         // Lobby-Update
         Network.onLobbyUpdate = (data) => {
+            // Beim ersten Lobby-Update: Modus setzen wenn Host
+            if (this._selectedMPMode && Network.isHost() && !this._modeSet) {
+                this._modeSet = true;
+                Network.selectMode(this._selectedMPMode);
+            }
             this._updateLobbyUI(data);
         };
 

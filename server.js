@@ -46,6 +46,7 @@ const ENEMY_RADIUS = 0.3;
 const ENEMY_DAMAGE = 8;
 const ENEMY_ATTACK_COOLDOWN = 1.5;
 const WAVE_PAUSE = 10; // Sekunden zwischen Wellen
+const DM_KILL_LIMIT = 20; // Deathmatch: Erster Spieler mit 20 Kills gewinnt
 
 // ============================================
 // Performance-Optimierung
@@ -104,6 +105,14 @@ const coop = {
     gameOverTime: null,
     pickups: [],
     nextPickupId: 0
+};
+
+// Deathmatch Spielende-Zustand
+const dm = {
+    gameOver: false,
+    gameOverTime: null,
+    winnerId: null,
+    winnerName: null
 };
 
 // ============================================
@@ -279,8 +288,29 @@ function checkCoopGameOver() {
         coop.gameOver = true;
         coop.gameOverTime = Date.now();
         io.emit('coopGameOver', { wave: coop.wave });
+        sendGameEnd('coop', null, null, coop.wave);
         console.log(`  GAME OVER bei Welle ${coop.wave}`);
     }
+}
+
+// Finale Rangliste erstellen und gameEnd senden
+function sendGameEnd(mode, winnerId, winnerName, wave) {
+    const scores = [];
+    for (const [id, p] of players) {
+        scores.push({
+            id, name: p.name, color: p.color,
+            kills: p.kills, deaths: p.deaths
+        });
+    }
+    scores.sort((a, b) => b.kills - a.kills);
+    io.emit('gameEnd', {
+        mode,
+        winnerId: winnerId || null,
+        winnerName: winnerName || null,
+        wave: wave || 0,
+        scores,
+        killLimit: mode === 'deathmatch' ? DM_KILL_LIMIT : 0
+    });
 }
 
 // Co-op: Alles zuruecksetzen und in Lobby zurueckkehren
@@ -295,6 +325,12 @@ function resetToLobby() {
     coop.nextPickupId = 0;
     lastSentEnemies.clear();
     lastSentDoors = null;
+
+    // DM-Zustand zuruecksetzen
+    dm.gameOver = false;
+    dm.gameOverTime = null;
+    dm.winnerId = null;
+    dm.winnerName = null;
 
     for (const [, p] of players) {
         p.kills = 0;
@@ -758,9 +794,17 @@ setInterval(() => {
         }
     }
 
-    // --- Co-op Game Over: nach 8 Sekunden zurueck in Lobby ---
+    // --- Co-op Game Over: nach 10 Sekunden zurueck in Lobby ---
     if (lobby.mode === 'coop' && coop.gameOver && coop.gameOverTime) {
-        if (Date.now() - coop.gameOverTime > 8000) {
+        if (Date.now() - coop.gameOverTime > 10000) {
+            resetToLobby();
+            return;
+        }
+    }
+
+    // --- DM Game Over: nach 10 Sekunden zurueck in Lobby ---
+    if (lobby.mode === 'deathmatch' && dm.gameOver && dm.gameOverTime) {
+        if (Date.now() - dm.gameOverTime > 10000) {
             resetToLobby();
             return;
         }
@@ -889,6 +933,16 @@ setInterval(() => {
                                 victimId: hit.id, victimName: hit.name
                             });
                             console.log(`  ** ${p.name} -> ${hit.name}`);
+
+                            // DM: Kill-Limit pruefen
+                            if (!dm.gameOver && p.kills >= DM_KILL_LIMIT) {
+                                dm.gameOver = true;
+                                dm.gameOverTime = Date.now();
+                                dm.winnerId = p.id;
+                                dm.winnerName = p.name;
+                                sendGameEnd('deathmatch', p.id, p.name, 0);
+                                console.log(`  === ${p.name} GEWINNT (${p.kills} Kills) ===`);
+                            }
                         }
                     }
                 }
@@ -1010,6 +1064,12 @@ setInterval(() => {
     if (isFullTick || currentDoors !== lastSentDoors) {
         state.doors = currentDoors;
         lastSentDoors = currentDoors;
+    }
+
+    // DM: Kill-Limit und Game-Over Zustand mitsenden
+    if (lobby.mode === 'deathmatch') {
+        state.killLimit = DM_KILL_LIMIT;
+        state.dmGameOver = dm.gameOver;
     }
 
     io.volatile.emit('gameState', state);
